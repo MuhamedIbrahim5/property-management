@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إنشاء أيقونات - نظام إدارة الأملاك</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            text-align: center;
+            background: #f5f5f5;
+        }
+        canvas {
+            margin: 10px;
+            border: 2px solid #17415A;
+            background: white;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #17415A;
+        }
+        .instructions {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: right;
+        }
+        button {
+            background: #17415A;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #2C5D7A;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏢 إنشاء أيقونات النظام</h1>
+        
+        <div class="instructions">
+            <h2>التعليمات:</h2>
+            <ol>
+                <li>افتح هذا الملف في المتصفح</li>
+                <li>اضغط على الأزرار أدناه لتنزيل كل أيقونة</li>
+                <li>ضع الأيقونات في مجلد <code>public/</code></li>
+            </ol>
+        </div>
+
+        <div id="canvases"></div>
+        
+        <div>
+            <button onclick="downloadAll()">تنزيل جميع الأيقونات</button>
+        </div>
+    </div>
+
+    <script>
+        const sizes = [
+            { name: 'favicon-16x16.png', size: 16 },
+            { name: 'favicon-32x32.png', size: 32 },
+            { name: 'apple-touch-icon.png', size: 180 },
+            { name: 'favicon-192x192.png', size: 192 },
+            { name: 'favicon-512x512.png', size: 512 }
+        ];
+
+        const canvasContainer = document.getElementById('canvases');
+
+        function drawIcon(canvas, size) {
+            const ctx = canvas.getContext('2d');
+            canvas.width = size;
+            canvas.height = size;
+            
+            const scale = size / 32;
+            ctx.scale(scale, scale);
+            
+            // Background
+            ctx.fillStyle = '#17415A';
+            roundRect(ctx, 0, 0, 32, 32, 6);
+            ctx.fill();
+            
+            // Building body
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            roundRect(ctx, 8, 10, 16, 16, 1);
+            ctx.fill();
+            
+            // Windows - Row 1
+            ctx.fillStyle = '#17415A';
+            drawWindow(ctx, 10, 13, 2.5, 2.5);
+            drawWindow(ctx, 14, 13, 2.5, 2.5);
+            drawWindow(ctx, 18, 13, 2.5, 2.5);
+            
+            // Windows - Row 2
+            drawWindow(ctx, 10, 17, 2.5, 2.5);
+            drawWindow(ctx, 14, 17, 2.5, 2.5);
+            drawWindow(ctx, 18, 17, 2.5, 2.5);
+            
+            // Door
+            ctx.fillStyle = '#C97A3B';
+            roundRect(ctx, 13, 21.5, 4, 4.5, 0.5);
+            ctx.fill();
+            
+            // Roof
+            ctx.fillStyle = 'rgba(62, 120, 89, 0.9)';
+            ctx.beginPath();
+            ctx.moveTo(16, 8);
+            ctx.lineTo(7, 12);
+            ctx.lineTo(25, 12);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Wrench (maintenance symbol)
+            ctx.fillStyle = '#C97A3B';
+            ctx.beginPath();
+            ctx.moveTo(24, 7);
+            ctx.lineTo(26, 9);
+            ctx.lineTo(24, 11);
+            ctx.lineTo(22, 9);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+        }
+
+        function drawWindow(ctx, x, y, w, h) {
+            roundRect(ctx, x, y, w, h, 0.5);
+            ctx.fill();
+        }
+
+        function roundRect(ctx, x, y, w, h, r) {
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.lineTo(x + w - r, y);
+            ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+            ctx.lineTo(x + w, y + h - r);
+            ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            ctx.lineTo(x + r, y + h);
+            ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+            ctx.lineTo(x, y + r);
+            ctx.quadraticCurveTo(x, y, x + r, y);
+            ctx.closePath();
+        }
+
+        function downloadCanvas(canvas, filename) {
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        sizes.forEach(({ name, size }) => {
+            const div = document.createElement('div');
+            div.style.display = 'inline-block';
+            div.style.margin = '10px';
+            
+            const canvas = document.createElement('canvas');
+            drawIcon(canvas, size);
+            
+            const btn = document.createElement('button');
+            btn.textContent = `تنزيل ${name}`;
+            btn.onclick = () => downloadCanvas(canvas, name);
+            
+            const label = document.createElement('p');
+            label.textContent = `${size}×${size}px`;
+            label.style.margin = '5px 0';
+            
+            div.appendChild(canvas);
+            div.appendChild(document.createElement('br'));
+            div.appendChild(label);
+            div.appendChild(btn);
+            
+            canvasContainer.appendChild(div);
+        });
+
+        function downloadAll() {
+            sizes.forEach(({ name, size }, index) => {
+                setTimeout(() => {
+                    const canvas = document.createElement('canvas');
+                    drawIcon(canvas, size);
+                    downloadCanvas(canvas, name);
+                }, index * 500);
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,167 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  password  String
+  role      String   @default("viewer") // admin, manager, technician, receptionist, viewer
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lastLogin DateTime?
+
+  assignedRequests MaintenanceRequest[] @relation("AssignedTo")
+  activities       ActivityHistory[]
+}
+
+model Property {
+  id               String   @id @default(cuid())
+  name             String
+  neighborhood     String
+  address          String?
+  type             String   @default("residential") // residential, commercial, mixed
+  status           String   @default("active") // active, inactive
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  units              Unit[]
+  maintenanceRequests MaintenanceRequest[]
+}
+
+model Unit {
+  id           String   @id @default(cuid())
+  propertyId   String
+  unitNumber   String
+  type         String   @default("residential") // residential, services, office
+  status       String   @default("vacant") // occupied, vacant, maintenance
+  tenantName   String?
+  tenantPhone  String?
+  tenantEmail  String?
+  qrCode       String?  @unique
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  property            Property             @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  maintenanceRequests MaintenanceRequest[]
+
+  @@index([propertyId])
+}
+
+model MaintenanceType {
+  id        String   @id @default(cuid())
+  name      String
+  color     String   @default("#3E7859")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  maintenanceRequests MaintenanceRequest[]
+}
+
+model MaintenanceStatus {
+  id          String   @id @default(cuid())
+  name        String
+  color       String   @default("#2C5D7A")
+  icon        String?
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  isDefault   Boolean  @default(false)
+  isCompleted Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  maintenanceRequests MaintenanceRequest[]
+}
+
+model MaintenanceRequest {
+  id               String   @id @default(cuid())
+  requestNumber    String   @unique
+  trackingCode     String   @unique
+  propertyId       String
+  unitId           String
+  issueDescription String
+  typeId           String
+  statusId         String
+  priority         String   @default("normal") // urgent, normal, low
+  assigneeId       String?
+  
+  // Documentation only (not accounting)
+  purchases      String?
+  paymentMethod  String?
+  cost           Float?
+  
+  // Public request fields
+  requesterName  String
+  requesterPhone String
+  isPublicRequest Boolean @default(false)
+  
+  rating         Int?
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  startedAt      DateTime?
+  completedAt    DateTime?
+
+  property    Property          @relation(fields: [propertyId], references: [id])
+  unit        Unit              @relation(fields: [unitId], references: [id])
+  type        MaintenanceType   @relation(fields: [typeId], references: [id])
+  status      MaintenanceStatus @relation(fields: [statusId], references: [id])
+  assignee    User?             @relation("AssignedTo", fields: [assigneeId], references: [id])
+  attachments Attachment[]
+  activities  ActivityHistory[]
+
+  @@index([propertyId])
+  @@index([unitId])
+  @@index([typeId])
+  @@index([statusId])
+  @@index([assigneeId])
+  @@index([trackingCode])
+}
+
+model Attachment {
+  id        String   @id @default(cuid())
+  requestId String
+  fileName  String
+  filePath  String
+  fileType  String
+  fileSize  Int
+  uploadedBy String?
+  createdAt DateTime @default(now())
+
+  request MaintenanceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+}
+
+model ActivityHistory {
+  id        String   @id @default(cuid())
+  requestId String
+  userId    String
+  action    String
+  oldValue  String?
+  newValue  String?
+  notes     String?
+  createdAt DateTime @default(now())
+
+  request MaintenanceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  user    User               @relation(fields: [userId], references: [id])
+
+  @@index([requestId])
+  @@index([userId])
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}

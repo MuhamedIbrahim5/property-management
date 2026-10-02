@@ -1,0 +1,67 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Main Colors */
+    --background: 80 10% 95%; /* #F4F5F2 */
+    --foreground: 195 25% 14%; /* #1C2B30 */
+    --card: 0 0% 100%; /* #FFFFFF */
+    --card-foreground: 195 25% 14%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 195 25% 14%;
+    
+    /* Primary - Dark Blue #17415A */
+    --primary: 200 55% 22%;
+    --primary-foreground: 207 50% 92%; /* #EAF1F5 */
+    
+    /* Secondary */
+    --secondary: 210 10% 96%;
+    --secondary-foreground: 195 25% 14%;
+    
+    /* Muted #6B7A80 */
+    --muted: 200 8% 46%;
+    --muted-foreground: 200 8% 46%;
+    
+    /* Accent - Orange/Gold #C97A3B */
+    --accent: 29 54% 51%;
+    --accent-foreground: 0 0% 100%;
+    
+    /* Destructive - Red #B24435 */
+    --destructive: 4 52% 46%;
+    --destructive-foreground: 0 0% 100%;
+    
+    /* Border #E1E4E0 */
+    --border: 80 9% 88%;
+    --input: 80 9% 88%;
+    --ring: 200 55% 22%;
+    --radius: 0.625rem;
+    
+    /* Status Colors */
+    --good: 151 38% 35%; /* #3E7859 */
+    --warn: 45 62% 48%; /* #C99A2E */
+    --primary-light: 200 47% 33%; /* #2C5D7A */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-arabic;
+    direction: rtl;
+  }
+  html {
+    direction: rtl;
+  }
+}
+
+@layer utilities {
+  .font-arabic {
+    font-family: 'IBM Plex Sans Arabic', sans-serif;
+  }
+}

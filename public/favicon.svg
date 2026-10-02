@@ -1,0 +1,32 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="32" height="32" rx="6" fill="#17415A"/>
+  
+  <!-- Building Icon -->
+  <g transform="translate(6, 6)">
+    <!-- Main building -->
+    <rect x="2" y="4" width="16" height="16" rx="1" fill="#ffffff" opacity="0.9"/>
+    
+    <!-- Windows - Row 1 -->
+    <rect x="4" y="7" width="2.5" height="2.5" rx="0.5" fill="#17415A"/>
+    <rect x="8" y="7" width="2.5" height="2.5" rx="0.5" fill="#17415A"/>
+    <rect x="12" y="7" width="2.5" height="2.5" rx="0.5" fill="#17415A"/>
+    
+    <!-- Windows - Row 2 -->
+    <rect x="4" y="11" width="2.5" height="2.5" rx="0.5" fill="#17415A"/>
+    <rect x="8" y="11" width="2.5" height="2.5" rx="0.5" fill="#17415A"/>
+    <rect x="12" y="11" width="2.5" height="2.5" rx="0.5" fill="#17415A"/>
+    
+    <!-- Door -->
+    <rect x="7" y="15.5" width="4" height="4.5" rx="0.5" fill="#C97A3B"/>
+    
+    <!-- Roof -->
+    <path d="M 10 2 L 1 6 L 19 6 Z" fill="#3E7859" opacity="0.9"/>
+    
+    <!-- Wrench icon (maintenance symbol) -->
+    <g transform="translate(13, 1)">
+      <path d="M 5 0 L 7 2 L 5 4 L 3 2 Z" fill="#C97A3B"/>
+      <rect x="4.5" y="3" width="1" height="2" fill="#C97A3B" transform="rotate(45 5 4)"/>
+    </g>
+  </g>
+</svg>
