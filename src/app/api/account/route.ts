@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 
+export const dynamic = 'force-dynamic'
+
 // GET current user account
 export async function GET() {
   try {
