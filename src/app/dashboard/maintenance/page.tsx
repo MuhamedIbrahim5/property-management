@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import MaintenanceClient from './MaintenanceClient'
 
+export const dynamic = 'force-dynamic'
+
 export default async function MaintenancePage() {
   const [requests, statuses, types, users] = await Promise.all([
     prisma.maintenanceRequest.findMany({
