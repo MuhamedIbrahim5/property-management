@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useEffect, useState } from 'react'
+import { getAppUrl, buildAppUrl } from '@/lib/url'
 
 type MaintenanceStatus = {
   id: string
@@ -188,7 +189,7 @@ export default function SettingsPage() {
               <label className="text-sm font-semibold text-foreground">رابط النظام</label>
               <div className="mt-1 flex items-center gap-2">
                 <code className="flex-1 rounded-md bg-muted/50 px-3 py-2 text-xs">
-                  {process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}
+                  {getAppUrl()}
                 </code>
               </div>
             </div>
@@ -250,12 +251,12 @@ export default function SettingsPage() {
               <label className="text-sm font-semibold text-foreground">الرابط العام</label>
               <div className="mt-1 flex items-center gap-2">
                 <code className="flex-1 rounded-md bg-muted/50 px-3 py-2 text-sm">
-                  {process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/request
+                  {buildAppUrl('/request')}
                 </code>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => copyToClipboard(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/request`)}
+                  onClick={() => copyToClipboard(buildAppUrl('/request'))}
                 >
                   نسخ
                 </Button>

@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAdminAuth, generateCompletionToken } from '@/lib/auth-helpers'
+import { buildAppUrl } from '@/lib/url'
 
 function generateRequestNumber() {
   const year = new Date().getFullYear()
@@ -17,6 +19,12 @@ function generateTrackingCode() {
 }
 
 export async function GET() {
+  // Require admin authentication
+  const auth = await requireAdminAuth()
+  if (!auth.authorized) {
+    return auth.response
+  }
+
   try {
     const requests = await prisma.maintenanceRequest.findMany({
       include: {
@@ -73,6 +81,9 @@ export async function POST(request: Request) {
       )
     }
 
+    // Generate secure completion token
+    const { token: completionToken, hash: completionTokenHash } = generateCompletionToken()
+
     const maintenanceRequest = await prisma.maintenanceRequest.create({
       data: {
         requestNumber: generateRequestNumber(),
@@ -86,6 +97,9 @@ export async function POST(request: Request) {
         requesterName,
         requesterPhone,
         isPublicRequest: isPublicRequest || false,
+        completionToken: completionTokenHash,
+        completionTokenCreatedAt: new Date(),
+        completionTokenUsed: false,
       },
       include: {
         property: true,
@@ -95,7 +109,20 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json(maintenanceRequest, { status: 201 })
+    // Return response with completion URL for public requests
+    const response: any = {
+      ...maintenanceRequest,
+      completionUrl: isPublicRequest
+        ? buildAppUrl(`/complete/${maintenanceRequest.trackingCode}?token=${completionToken}`)
+        : undefined
+    }
+
+    // Remove sensitive fields from response
+    delete response.completionToken
+    delete response.completionTokenCreatedAt
+    delete response.completionTokenUsed
+
+    return NextResponse.json(response, { status: 201 })
   } catch (error) {
     console.error('Error creating maintenance request:', error)
     return NextResponse.json(

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Building2, Home, MessageSquare, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { buildAppUrl } from '@/lib/url'
 
 type Property = {
   id: string
@@ -148,12 +149,25 @@ export default function PublicRequestPage() {
                 </p>
               </div>
 
+              <div className="rounded-lg bg-blue-50 border border-blue-200 p-4">
+                <p className="text-sm font-semibold text-blue-900 mb-2">
+                  رابط إتمام البلاغ للفني:
+                </p>
+                <code className="text-xs text-blue-700 break-all">
+                  {buildAppUrl(`/complete/${trackingCode}`)}
+                </code>
+                <p className="text-xs text-blue-700 mt-2">
+                  يمكن مشاركة هذا الرابط مع الفني لإتمام البلاغ
+                </p>
+              </div>
+
               <div className="flex flex-col gap-3">
                 <Button
                   className="w-full gap-2"
                   onClick={() => {
-                    const message = `🔧 طلب صيانة جديد\n\n📋 رقم البلاغ: ${requestNumber}\n🔑 رمز المتابعة: ${trackingCode}\n\nتم إرسال الطلب بنجاح وسيتم التواصل معك قريباً.`
-                    const whatsappUrl = `https://wa.me/966506539610?text=${encodeURIComponent(message)}`
+                    const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '966506539610'
+                    const message = `🔧 *طلب صيانة جديد*\n\n📋 *رقم البلاغ:* ${requestNumber}\n🔑 *رمز المتابعة:* ${trackingCode}\n\n✅ تم إرسال الطلب بنجاح وسيتم التواصل معك قريباً.\n\n_للمتابعة أو الاستفسار، يمكنك الرد على هذه الرسالة_`
+                    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`
                     window.open(whatsappUrl, '_blank')
                   }}
                 >

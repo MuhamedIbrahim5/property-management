@@ -1,10 +1,17 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAdminAuth } from '@/lib/auth-helpers'
 
 export async function PUT(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  // Require admin authentication
+  const auth = await requireAdminAuth()
+  if (!auth.authorized) {
+    return auth.response
+  }
+
   try {
     const body = await request.json()
     const { unitNumber, propertyId, type, status, tenantName, tenantPhone } = body
@@ -35,6 +42,12 @@ export async function DELETE(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  // Require admin authentication
+  const auth = await requireAdminAuth()
+  if (!auth.authorized) {
+    return auth.response
+  }
+
   try {
     await prisma.unit.delete({
       where: { id: params.id },

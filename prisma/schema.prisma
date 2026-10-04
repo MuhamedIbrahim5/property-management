@@ -110,6 +110,15 @@ model MaintenanceRequest {
   updatedAt      DateTime @updatedAt
   startedAt      DateTime?
   completedAt    DateTime?
+  
+  // Technician completion fields - SECURITY ENHANCED
+  completionToken String?   @unique // Hashed completion token (SHA-256)
+  completionTokenCreatedAt DateTime? // Token creation date for expiry check
+  completionTokenUsed Boolean @default(false) // One-time use flag
+  technicianName   String?
+  technicianPhone  String?
+  completionImage  String?
+  completedBy      String?
 
   property    Property          @relation(fields: [propertyId], references: [id])
   unit        Unit              @relation(fields: [unitId], references: [id])

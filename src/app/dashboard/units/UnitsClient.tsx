@@ -1,12 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { DoorOpen, Building2, Plus, QrCode, X, Download, Trash2 } from 'lucide-react'
+import { DoorOpen, Building2, Plus, QrCode, X, Download, Trash2, Share2, Copy, MessageSquare } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import QRCode from 'qrcode'
+import QRCodeLib from 'qrcode'
+import { getAppUrl, buildAppUrl } from '@/lib/url'
 
 type Unit = {
   id: string
@@ -135,10 +136,9 @@ export default function UnitsClient({ initialUnits, properties }: { initialUnits
 
   const handleShowQR = async (unit: Unit) => {
     setSelectedUnit(unit)
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
-    const qrUrl = `${appUrl}/request?unitId=${unit.id}`
+    const qrUrl = buildAppUrl(`/request?unitId=${unit.id}`)
     try {
-      const dataUrl = await QRCode.toDataURL(qrUrl, { width: 300, margin: 2 })
+      const dataUrl = await QRCodeLib.toDataURL(qrUrl, { width: 300, margin: 2 })
       setQrDataUrl(dataUrl)
       setShowQRDialog(true)
     } catch (error) {
@@ -177,6 +177,19 @@ export default function UnitsClient({ initialUnits, properties }: { initialUnits
     link.download = `qr-${selectedUnit?.unitNumber}.png`
     link.href = qrDataUrl
     link.click()
+  }
+
+  const handleCopyLink = () => {
+    const url = buildAppUrl(`/request?unitId=${selectedUnit?.id}`)
+    navigator.clipboard.writeText(url)
+    alert('تم نسخ الرابط')
+  }
+
+  const handleShareWhatsApp = () => {
+    const url = buildAppUrl(`/request?unitId=${selectedUnit?.id}`)
+    const message = `📋 *رابط طلب صيانة*\n\n🏢 *العقار:* ${selectedUnit?.property.name}\n🚪 *الوحدة:* ${selectedUnit?.unitNumber}\n\n🔗 *الرابط:*\n${url}\n\nيمكنك فتح الرابط أو مسح الـ QR Code لإرسال طلب صيانة`
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`
+    window.open(whatsappUrl, '_blank')
   }
 
   return (
@@ -337,7 +350,7 @@ export default function UnitsClient({ initialUnits, properties }: { initialUnits
 
       {showQRDialog && selectedUnit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <Card className="w-full max-w-sm">
+          <Card className="w-full max-w-md">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold">QR Code - {selectedUnit.unitNumber}</h3>
@@ -345,15 +358,33 @@ export default function UnitsClient({ initialUnits, properties }: { initialUnits
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-              <div className="flex flex-col items-center">
-                <img src={qrDataUrl} alt="QR Code" className="w-64 h-64" />
-                <p className="mt-4 text-sm text-center text-muted-foreground">
+              <div className="flex flex-col items-center space-y-4">
+                <img src={qrDataUrl} alt="QR Code" className="w-64 h-64 border rounded-lg" />
+                <p className="text-sm text-center text-muted-foreground">
                   امسح الكود للوصول لنموذج طلب الصيانة
                 </p>
-                <Button className="mt-4 gap-2" onClick={handleDownloadQR}>
-                  <Download className="h-4 w-4" />
-                  تحميل QR Code
-                </Button>
+                
+                <div className="w-full rounded-lg bg-muted/50 p-3">
+                  <p className="text-xs font-medium mb-1">الرابط المباشر:</p>
+                  <code className="text-xs break-all block">
+                    {buildAppUrl(`/request?unitId=${selectedUnit.id}`)}
+                  </code>
+                </div>
+
+                <div className="w-full grid grid-cols-3 gap-2">
+                  <Button size="sm" className="gap-2" onClick={handleDownloadQR}>
+                    <Download className="h-4 w-4" />
+                    تحميل
+                  </Button>
+                  <Button size="sm" variant="outline" className="gap-2" onClick={handleCopyLink}>
+                    <Copy className="h-4 w-4" />
+                    نسخ
+                  </Button>
+                  <Button size="sm" variant="outline" className="gap-2" onClick={handleShareWhatsApp}>
+                    <MessageSquare className="h-4 w-4" />
+                    واتساب
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

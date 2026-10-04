@@ -36,6 +36,7 @@ export default function MaintenanceClient({
   const [selectedStatus, setSelectedStatus] = useState('')
   const [selectedType, setSelectedType] = useState('')
   const [selectedPriority, setSelectedPriority] = useState('')
+  const [selectedTechnician, setSelectedTechnician] = useState('')
   const [showDetailDialog, setShowDetailDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null)
@@ -54,10 +55,13 @@ export default function MaintenanceClient({
       const matchesStatus = selectedStatus === '' || req.status.id === selectedStatus
       const matchesType = selectedType === '' || req.type.id === selectedType
       const matchesPriority = selectedPriority === '' || req.priority === selectedPriority
+      const matchesTechnician = selectedTechnician === '' || 
+        (req as any).technicianName?.includes(selectedTechnician) ||
+        (req as any).technicianPhone?.includes(selectedTechnician)
 
-      return matchesSearch && matchesStatus && matchesType && matchesPriority
+      return matchesSearch && matchesStatus && matchesType && matchesPriority && matchesTechnician
     })
-  }, [requests, searchTerm, selectedStatus, selectedType, selectedPriority])
+  }, [requests, searchTerm, selectedStatus, selectedType, selectedPriority, selectedTechnician])
 
   const getStatusVariant = (status: string) => {
     if (status.includes('مكتمل')) return 'success'
@@ -145,6 +149,7 @@ export default function MaintenanceClient({
     setSelectedStatus('')
     setSelectedType('')
     setSelectedPriority('')
+    setSelectedTechnician('')
   }
 
   return (
@@ -180,7 +185,7 @@ export default function MaintenanceClient({
                 <Filter className="h-4 w-4" />
                 تصفية
               </Button>
-              {(selectedStatus || selectedType || selectedPriority) && (
+              {(selectedStatus || selectedType || selectedPriority || selectedTechnician) && (
                 <Button variant="ghost" size="sm" onClick={clearFilters}>
                   <X className="h-4 w-4" />
                 </Button>
@@ -188,7 +193,7 @@ export default function MaintenanceClient({
             </div>
 
             {showFilters && (
-              <div className="mt-4 grid grid-cols-3 gap-3">
+              <div className="mt-4 grid grid-cols-4 gap-3">
                 <div>
                   <label className="text-xs font-medium">الحالة</label>
                   <select
@@ -224,6 +229,16 @@ export default function MaintenanceClient({
                     <option value="urgent">عاجل</option>
                   </select>
                 </div>
+                <div>
+                  <label className="text-xs font-medium">الفني</label>
+                  <input
+                    type="text"
+                    value={selectedTechnician}
+                    onChange={(e) => setSelectedTechnician(e.target.value)}
+                    placeholder="اسم أو رقم الفني"
+                    className="w-full px-3 py-2 border rounded-md text-sm"
+                  />
+                </div>
               </div>
             )}
           </CardContent>
@@ -255,6 +270,7 @@ export default function MaintenanceClient({
                       <th className="px-4 py-3 text-right text-xs font-bold">الحالة</th>
                       <th className="px-4 py-3 text-right text-xs font-bold">الأولوية</th>
                       <th className="px-4 py-3 text-right text-xs font-bold">المسؤول</th>
+                      <th className="px-4 py-3 text-right text-xs font-bold">الفني</th>
                       <th className="px-4 py-3 text-right text-xs font-bold">التاريخ</th>
                       <th className="px-4 py-3 text-right text-xs font-bold">الإجراءات</th>
                     </tr>
@@ -285,6 +301,16 @@ export default function MaintenanceClient({
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-sm text-muted-foreground">{request.assignee?.name || 'غير محدد'}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {(request as any).technicianName ? (
+                            <div>
+                              <p className="text-sm font-medium">{(request as any).technicianName}</p>
+                              <p className="text-xs text-muted-foreground">{(request as any).technicianPhone}</p>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">-</span>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-xs text-muted-foreground">
@@ -348,6 +374,33 @@ export default function MaintenanceClient({
                     <p className="mt-1 text-sm">{getPriorityText(selectedRequest.priority)}</p>
                   </div>
                 </div>
+                
+                {(selectedRequest as any).technicianName && (
+                  <div className="rounded-lg bg-good/10 border border-good/20 p-4">
+                    <p className="text-sm font-semibold text-good mb-2">✅ تم إتمام البلاغ بواسطة الفني</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground">اسم الفني</label>
+                        <p className="mt-1 text-sm">{(selectedRequest as any).technicianName}</p>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground">رقم الجوال</label>
+                        <p className="mt-1 text-sm">{(selectedRequest as any).technicianPhone}</p>
+                      </div>
+                    </div>
+                    {(selectedRequest as any).completionImage && (
+                      <div className="mt-3">
+                        <label className="text-xs font-medium text-muted-foreground">صورة إثبات التنفيذ</label>
+                        <img 
+                          src={(selectedRequest as any).completionImage} 
+                          alt="Completion" 
+                          className="mt-2 w-full h-48 object-cover rounded-lg"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+                
                 <div>
                   <label className="text-sm font-medium">الحالة</label>
                   <select

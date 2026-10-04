@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAdminAuth } from '@/lib/auth-helpers'
 
 export async function GET() {
+  // Require admin authentication
+  const auth = await requireAdminAuth()
+  if (!auth.authorized) {
+    return auth.response
+  }
+
   try {
     const units = await prisma.unit.findMany({
       include: {
@@ -28,6 +35,12 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  // Require admin authentication
+  const auth = await requireAdminAuth()
+  if (!auth.authorized) {
+    return auth.response
+  }
+
   try {
     const body = await request.json()
     const { propertyId, unitNumber, type, status, tenantName, tenantPhone } = body

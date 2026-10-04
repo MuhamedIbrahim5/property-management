@@ -7,14 +7,29 @@ export async function PUT(
 ) {
   try {
     const body = await request.json()
-    const { statusId, assigneeId } = body
+    const { 
+      statusId, 
+      assigneeId, 
+      technicianName, 
+      technicianPhone, 
+      completionImage, 
+      completedAt,
+      completedBy 
+    } = body
+
+    const updateData: any = {}
+    
+    if (statusId !== undefined) updateData.statusId = statusId
+    if (assigneeId !== undefined) updateData.assigneeId = assigneeId || null
+    if (technicianName !== undefined) updateData.technicianName = technicianName
+    if (technicianPhone !== undefined) updateData.technicianPhone = technicianPhone
+    if (completionImage !== undefined) updateData.completionImage = completionImage
+    if (completedAt !== undefined) updateData.completedAt = new Date(completedAt)
+    if (completedBy !== undefined) updateData.completedBy = completedBy
 
     const maintenanceRequest = await prisma.maintenanceRequest.update({
       where: { id: params.id },
-      data: {
-        statusId,
-        assigneeId: assigneeId || null,
-      },
+      data: updateData,
     })
 
     return NextResponse.json(maintenanceRequest)

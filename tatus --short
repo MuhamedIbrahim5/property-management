@@ -1,0 +1,122 @@
+DEPLOYMENT_NOTES.md:5: trailing whitespace.
+[32m+[m[32m**Build**: ✅ نجح[m[41m  [m
+DEPLOYMENT_NOTES.md:6: trailing whitespace.
+[32m+[m[32m**Git Check**: ✅ نجح[m[41m  [m
+DEPLOYMENT_NOTES.md:7: trailing whitespace.
+[32m+[m[32m**المشروع**: جاهز للتسليم[m[41m  [m
+prisma/schema.prisma:113: trailing whitespace.
+[32m+[m[41m  [m
+src/app/api/maintenance/[id]/route.ts:10: trailing whitespace.
+[32m+[m[32m    const {[m[41m [m
+src/app/api/maintenance/[id]/route.ts:11: trailing whitespace.
+[32m+[m[32m      statusId,[m[41m [m
+src/app/api/maintenance/[id]/route.ts:12: trailing whitespace.
+[32m+[m[32m      assigneeId,[m[41m [m
+src/app/api/maintenance/[id]/route.ts:13: trailing whitespace.
+[32m+[m[32m      technicianName,[m[41m [m
+src/app/api/maintenance/[id]/route.ts:14: trailing whitespace.
+[32m+[m[32m      technicianPhone,[m[41m [m
+src/app/api/maintenance/[id]/route.ts:15: trailing whitespace.
+[32m+[m[32m      completionImage,[m[41m [m
+src/app/api/maintenance/[id]/route.ts:17: trailing whitespace.
+[32m+[m[32m      completedBy[m[41m [m
+src/app/api/maintenance/[id]/route.ts:21: trailing whitespace.
+[32m+[m[41m    [m
+src/app/api/maintenance/complete/route.ts:13: trailing whitespace.
+[32m+[m[41m    [m
+src/app/api/maintenance/complete/route.ts:16: trailing whitespace.
+[32m+[m[32m        {[m[41m [m
+src/app/api/maintenance/complete/route.ts:19: trailing whitespace.
+[32m+[m[32m        },[m[41m [m
+src/app/api/maintenance/complete/route.ts:95: trailing whitespace.
+[32m+[m[32m    if (maintenanceRequest.completionTokenCreatedAt &&[m[41m [m
+src/app/complete/[trackingCode]/page.tsx:48: trailing whitespace.
+[32m+[m[41m      [m
+src/app/complete/[trackingCode]/page.tsx:52: trailing whitespace.
+[32m+[m[41m      [m
+src/app/complete/[trackingCode]/page.tsx:79: trailing whitespace.
+[32m+[m[41m    [m
+src/app/dashboard/maintenance/MaintenanceClient.tsx:58: trailing whitespace.
+[32m+[m[32m      const matchesTechnician = selectedTechnician === '' ||[m[41m [m
+src/app/dashboard/maintenance/MaintenanceClient.tsx:377: trailing whitespace.
+[32m+[m[41m                [m
+src/app/dashboard/maintenance/MaintenanceClient.tsx:394: trailing whitespace.
+[32m+[m[32m                        <img[m[41m [m
+src/app/dashboard/maintenance/MaintenanceClient.tsx:395: trailing whitespace.
+[32m+[m[32m                          src={(selectedRequest as any).completionImage}[m[41m [m
+src/app/dashboard/maintenance/MaintenanceClient.tsx:396: trailing whitespace.
+[32m+[m[32m                          alt="Completion"[m[41m [m
+src/app/dashboard/maintenance/MaintenanceClient.tsx:403: trailing whitespace.
+[32m+[m[41m                [m
+src/app/dashboard/units/UnitsClient.tsx:366: trailing whitespace.
+[32m+[m[41m                [m
+src/lib/auth-helpers.ts:11: trailing whitespace.
+[32m+[m[41m  [m
+src/lib/auth-helpers.ts:17: trailing whitespace.
+[32m+[m[32m        { error: 'Authentication required' },[m[41m [m
+src/lib/auth-helpers.ts:22: trailing whitespace.
+[32m+[m[41m  [m
+src/lib/auth-helpers.ts:29: trailing whitespace.
+[32m+[m[32m        { error: 'Insufficient permissions. Admin or manager role required.' },[m[41m [m
+src/lib/auth-helpers.ts:34: trailing whitespace.
+[32m+[m[41m  [m
+src/lib/auth-helpers.ts:49: trailing whitespace.
+[32m+[m[32m  identifier: string,[m[41m [m
+src/lib/auth-helpers.ts:50: trailing whitespace.
+[32m+[m[32m  maxAttempts = 5,[m[41m [m
+src/lib/auth-helpers.ts:55: trailing whitespace.
+[32m+[m[41m  [m
+src/lib/auth-helpers.ts:60: trailing whitespace.
+[32m+[m[41m  [m
+src/lib/auth-helpers.ts:66: trailing whitespace.
+[32m+[m[41m  [m
+src/lib/auth-helpers.ts:71: trailing whitespace.
+[32m+[m[41m  [m
+src/lib/auth-helpers.ts:84: trailing whitespace.
+[32m+[m[41m  [m
+src/lib/image-validation.ts:17: trailing whitespace.
+[32m+[m[41m    [m
+src/lib/image-validation.ts:19: trailing whitespace.
+[32m+[m[41m    [m
+src/lib/image-validation.ts:23: trailing whitespace.
+[32m+[m[41m    [m
+src/lib/image-validation.ts:28: trailing whitespace.
+[32m+[m[32m      return {[m[41m [m
+src/lib/image-validation.ts:29: trailing whitespace.
+[32m+[m[32m        valid: false,[m[41m [m
+src/lib/image-validation.ts:30: trailing whitespace.
+[32m+[m[32m        error: `Image too large: ${sizeMB}MB. Maximum allowed: 3MB`[m[41m [m
+src/lib/image-validation.ts:33: trailing whitespace.
+[32m+[m[41m    [m
+src/lib/image-validation.ts:41: trailing whitespace.
+[32m+[m[41m    [m
+src/lib/image-validation.ts:45: trailing whitespace.
+[32m+[m[41m    [m
+src/lib/image-validation.ts:47: trailing whitespace.
+[32m+[m[41m    [m
+src/lib/image-validation.ts:60: trailing whitespace.
+[32m+[m[41m  [m
+src/lib/image-validation.ts:66: trailing whitespace.
+[32m+[m[41m      [m
+src/lib/image-validation.ts:69: trailing whitespace.
+[32m+[m[32m      return buffer[0] === 0x89 && buffer[1] === 0x50 &&[m[41m [m
+src/lib/image-validation.ts:71: trailing whitespace.
+[32m+[m[32m             buffer[4] === 0x0D && buffer[5] === 0x0A &&[m[41m [m
+src/lib/image-validation.ts:73: trailing whitespace.
+[32m+[m[41m             [m
+src/lib/image-validation.ts:76: trailing whitespace.
+[32m+[m[32m      return buffer.toString('ascii', 0, 4) === 'RIFF' &&[m[41m [m
+src/lib/image-validation.ts:78: trailing whitespace.
+[32m+[m[41m             [m
+src/lib/image-validation.ts:95: trailing whitespace.
+[32m+[m[41m  [m
+src/lib/image-validation.ts:97: trailing whitespace.
+[32m+[m[41m  [m
+src/lib/image-validation.ts:102: trailing whitespace.
+[32m+[m[41m  [m
+src/lib/url.ts:13: trailing whitespace.
+[32m+[m[41m  [m
+src/lib/url.ts:18: trailing whitespace.
+[32m+[m[41m  [m
+src/lib/url.ts:23: trailing whitespace.
+[32m+[m[41m  [m
