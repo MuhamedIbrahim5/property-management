@@ -26,6 +26,7 @@ export default function PublicRequestPage() {
   const [submitted, setSubmitted] = useState(false)
   const [requestNumber, setRequestNumber] = useState('')
   const [trackingCode, setTrackingCode] = useState('')
+  const [completionUrl, setCompletionUrl] = useState('')
   const [properties, setProperties] = useState<Property[]>([])
   const [units, setUnits] = useState<Unit[]>([])
   const [types, setTypes] = useState<MaintenanceType[]>([])
@@ -105,6 +106,7 @@ export default function PublicRequestPage() {
         const result = await response.json()
         setRequestNumber(result.requestNumber)
         setTrackingCode(result.trackingCode)
+        setCompletionUrl(result.completionUrl || buildAppUrl(`/complete/${result.trackingCode}`))
         setSubmitted(true)
       }
     } catch (error) {
@@ -149,17 +151,19 @@ export default function PublicRequestPage() {
                 </p>
               </div>
 
-              <div className="rounded-lg bg-blue-50 border border-blue-200 p-4">
-                <p className="text-sm font-semibold text-blue-900 mb-2">
-                  رابط إتمام البلاغ للفني:
-                </p>
-                <code className="text-xs text-blue-700 break-all">
-                  {buildAppUrl(`/complete/${trackingCode}`)}
-                </code>
-                <p className="text-xs text-blue-700 mt-2">
-                  يمكن مشاركة هذا الرابط مع الفني لإتمام البلاغ
-                </p>
-              </div>
+              {completionUrl && (
+                <div className="rounded-lg bg-blue-50 border border-blue-200 p-4">
+                  <p className="text-sm font-semibold text-blue-900 mb-2">
+                    رابط إتمام البلاغ للفني:
+                  </p>
+                  <code className="text-xs text-blue-700 break-all">
+                    {completionUrl}
+                  </code>
+                  <p className="text-xs text-blue-700 mt-2">
+                    يمكن مشاركة هذا الرابط مع الفني لإتمام البلاغ
+                  </p>
+                </div>
+              )}
 
               <div className="flex flex-col gap-3">
                 <Button
@@ -182,6 +186,7 @@ export default function PublicRequestPage() {
                     setSubmitted(false)
                     setRequestNumber('')
                     setTrackingCode('')
+                    setCompletionUrl('')
                   }}
                 >
                   إرسال طلب جديد
