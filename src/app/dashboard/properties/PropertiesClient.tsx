@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { useTranslation } from '@/hooks/useTranslation'
 
 type Property = {
   id: string
@@ -18,6 +19,7 @@ type Property = {
 }
 
 export default function PropertiesClient({ initialProperties }: { initialProperties: Property[] }) {
+  const { t } = useTranslation()
   const [properties, setProperties] = useState<Property[]>(initialProperties)
   const [showDialog, setShowDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -73,7 +75,7 @@ export default function PropertiesClient({ initialProperties }: { initialPropert
       setShowDialog(false)
     } catch (error) {
       console.error('Error saving property:', error)
-      alert('حدث خطأ أثناء الحفظ')
+      alert(t('messages.error'))
     }
   }
 
@@ -98,7 +100,7 @@ export default function PropertiesClient({ initialProperties }: { initialPropert
       setDeletingProperty(null)
     } catch (error: any) {
       console.error('Error deleting property:', error)
-      alert(error.message || 'حدث خطأ أثناء الحذف')
+      alert(error.message || t('messages.error'))
     }
   }
 
@@ -107,14 +109,14 @@ export default function PropertiesClient({ initialProperties }: { initialPropert
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">العقارات</h2>
+            <h2 className="text-2xl font-bold text-foreground">{t('properties.title')}</h2>
             <p className="text-sm text-muted-foreground">
-              إدارة العقارات والمباني ({properties.length} عقار)
+              {t('properties.subtitle')} ({properties.length} {t('properties.title')})
             </p>
           </div>
           <Button className="gap-2" onClick={handleAdd}>
             <Plus className="h-4 w-4" />
-            إضافة عقار جديد
+            {t('properties.newProperty')}
           </Button>
         </div>
 
@@ -123,14 +125,14 @@ export default function PropertiesClient({ initialProperties }: { initialPropert
             <CardContent className="flex flex-col items-center justify-center py-16">
               <Building2 className="h-12 w-12 text-muted-foreground/50" />
               <h3 className="mt-4 text-lg font-semibold text-foreground">
-                لا توجد عقارات
+                {t('properties.noProperties')}
               </h3>
               <p className="mt-2 text-sm text-muted-foreground">
-                ابدأ بإضافة عقار جديد للنظام
+                {t('properties.subtitle')}
               </p>
               <Button className="mt-4 gap-2" onClick={handleAdd}>
                 <Plus className="h-4 w-4" />
-                إضافة عقار جديد
+                {t('properties.newProperty')}
               </Button>
             </CardContent>
           </Card>
@@ -152,7 +154,7 @@ export default function PropertiesClient({ initialProperties }: { initialPropert
                     <Badge
                       variant={property.status === 'active' ? 'success' : 'secondary'}
                     >
-                      {property.status === 'active' ? 'نشط' : 'غير نشط'}
+                      {property.status === 'active' ? t('common.active') : t('common.inactive')}
                     </Badge>
                   </div>
 
@@ -161,26 +163,27 @@ export default function PropertiesClient({ initialProperties }: { initialPropert
                       <p className="text-2xl font-bold text-primary">
                         {property.units.length}
                       </p>
-                      <p className="text-xs text-muted-foreground">وحدة</p>
+                      <p className="text-xs text-muted-foreground">{t('units.title')}</p>
                     </div>
                     <div className="text-center">
                       <p className="text-2xl font-bold text-primary">
                         {property._count.maintenanceRequests}
                       </p>
-                      <p className="text-xs text-muted-foreground">بلاغ</p>
+                      <p className="text-xs text-muted-foreground">{t('maintenance.title')}</p>
                     </div>
                     <div className="text-center">
                       <p className="text-sm font-semibold text-foreground">
-                        {property.type === 'residential' ? 'سكني' :
-                          property.type === 'commercial' ? 'تجاري' : 'مختلط'}
+                        {property.type === 'residential' ? t('properties.propertyType.residential') :
+                          property.type === 'commercial' ? t('properties.propertyType.commercial') : 
+                          t('properties.propertyType.mixed')}
                       </p>
-                      <p className="text-xs text-muted-foreground">النوع</p>
+                      <p className="text-xs text-muted-foreground">{t('properties.type')}</p>
                     </div>
                   </div>
 
                   <div className="mt-4 flex gap-2">
                     <Button variant="outline" size="sm" className="flex-1" onClick={() => handleEdit(property)}>
-                      تعديل
+                      {t('common.edit')}
                     </Button>
                     <Button variant="destructive" size="sm" className="flex-1" onClick={() => handleDelete(property)}>
                       <Trash2 className="h-4 w-4" />
@@ -199,7 +202,7 @@ export default function PropertiesClient({ initialProperties }: { initialPropert
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold">
-                  {editingProperty ? 'تعديل عقار' : 'إضافة عقار جديد'}
+                  {editingProperty ? t('properties.editProperty') : t('properties.addProperty')}
                 </h3>
                 <Button variant="ghost" size="sm" onClick={() => setShowDialog(false)}>
                   <X className="h-4 w-4" />
@@ -207,7 +210,7 @@ export default function PropertiesClient({ initialProperties }: { initialPropert
               </div>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium">اسم العقار</label>
+                  <label className="text-sm font-medium">{t('properties.propertyName')}</label>
                   <Input
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -215,7 +218,7 @@ export default function PropertiesClient({ initialProperties }: { initialPropert
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">الحي</label>
+                  <label className="text-sm font-medium">{t('properties.neighborhood')}</label>
                   <Input
                     value={formData.neighborhood}
                     onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
@@ -223,34 +226,34 @@ export default function PropertiesClient({ initialProperties }: { initialPropert
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">النوع</label>
+                  <label className="text-sm font-medium">{t('properties.type')}</label>
                   <select
                     value={formData.type}
                     onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
                     className="w-full px-3 py-2 border rounded-md"
                   >
-                    <option value="residential">سكني</option>
-                    <option value="commercial">تجاري</option>
-                    <option value="mixed">مختلط</option>
+                    <option value="residential">{t('properties.propertyType.residential')}</option>
+                    <option value="commercial">{t('properties.propertyType.commercial')}</option>
+                    <option value="mixed">{t('properties.propertyType.mixed')}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-sm font-medium">الحالة</label>
+                  <label className="text-sm font-medium">{t('common.status')}</label>
                   <select
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
                     className="w-full px-3 py-2 border rounded-md"
                   >
-                    <option value="active">نشط</option>
-                    <option value="inactive">غير نشط</option>
+                    <option value="active">{t('common.active')}</option>
+                    <option value="inactive">{t('common.inactive')}</option>
                   </select>
                 </div>
                 <div className="flex gap-2">
                   <Button type="submit" className="flex-1">
-                    {editingProperty ? 'تحديث' : 'إضافة'}
+                    {editingProperty ? t('common.edit') : t('common.add')}
                   </Button>
                   <Button type="button" variant="outline" className="flex-1" onClick={() => setShowDialog(false)}>
-                    إلغاء
+                    {t('common.cancel')}
                   </Button>
                 </div>
               </form>
@@ -264,28 +267,28 @@ export default function PropertiesClient({ initialProperties }: { initialPropert
           <Card className="w-full max-w-md">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-destructive">تأكيد الحذف</h3>
+                <h3 className="text-lg font-bold text-destructive">{t('messages.deleteConfirm')}</h3>
                 <Button variant="ghost" size="sm" onClick={() => setShowDeleteDialog(false)}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>
               <p className="text-sm text-muted-foreground mb-4">
-                هل أنت متأكد من حذف العقار <strong>{deletingProperty.name}</strong>؟
+                {t('properties.deleteConfirm')} <strong>{deletingProperty.name}</strong>?
               </p>
               {(deletingProperty.units.length > 0 || deletingProperty._count.maintenanceRequests > 0) && (
                 <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3 mb-4">
-                  <p className="text-sm text-destructive font-semibold">تحذير:</p>
+                  <p className="text-sm text-destructive font-semibold">{t('messages.deleteWarning')}</p>
                   <p className="text-xs text-destructive/80">
-                    العقار يحتوي على {deletingProperty.units.length} وحدة و {deletingProperty._count.maintenanceRequests} بلاغ صيانة
+                    {t('properties.deleteWarning')}
                   </p>
                 </div>
               )}
               <div className="flex gap-2">
                 <Button variant="destructive" className="flex-1" onClick={confirmDelete}>
-                  نعم، احذف
+                  {t('common.yes')}, {t('common.delete')}
                 </Button>
                 <Button variant="outline" className="flex-1" onClick={() => setShowDeleteDialog(false)}>
-                  إلغاء
+                  {t('common.cancel')}
                 </Button>
               </div>
             </CardContent>

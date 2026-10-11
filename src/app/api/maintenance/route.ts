@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdminAuth, generateCompletionToken } from '@/lib/auth-helpers'
 import { buildAppUrl } from '@/lib/url'
+import { validateImageContent } from '@/lib/image-validation'
 
 function generateRequestNumber() {
   const year = new Date().getFullYear()
@@ -39,6 +40,18 @@ export async function GET() {
             email: true,
           },
         },
+        attachments: {
+          select: {
+            id: true,
+            fileName: true,
+            filePath: true,
+            fileType: true,
+            createdAt: true,
+          },
+          orderBy: {
+            createdAt: 'asc',
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
@@ -67,7 +80,54 @@ export async function POST(request: Request) {
       requesterName,
       requesterPhone,
       isPublicRequest,
+      requestedDate,
+      requestedTime,
+      attachmentImage,
     } = body
+
+    // Log received data (without sensitive info) for debugging
+    console.log('Received maintenance request:', {
+      propertyId: propertyId ? 'present' : 'missing',
+      unitId: unitId ? 'present' : 'missing',
+      issueDescription: issueDescription ? 'present' : 'missing',
+      typeId: typeId ? 'present' : 'missing',
+      requesterName: requesterName ? 'present' : 'missing',
+      requesterPhone: requesterPhone ? 'present' : 'missing',
+      priority: priority || 'not provided',
+      isPublicRequest,
+    })
+
+    // Validate required fields with specific error messages
+    const missingFields = []
+    if (!propertyId) missingFields.push('propertyId')
+    if (!unitId) missingFields.push('unitId')
+    if (!issueDescription) missingFields.push('issueDescription')
+    if (!typeId) missingFields.push('typeId')
+    if (!requesterName) missingFields.push('requesterName')
+    if (!requesterPhone) missingFields.push('requesterPhone')
+
+    if (missingFields.length > 0) {
+      console.error('Missing required fields:', missingFields)
+      return NextResponse.json(
+        { 
+          error: 'Missing required fields', 
+          missingFields,
+          details: 'Please ensure all required fields are filled'
+        },
+        { status: 400 }
+      )
+    }
+
+    // Validate image if provided
+    if (attachmentImage) {
+      const imageValidation = validateImageContent(attachmentImage)
+      if (!imageValidation.valid) {
+        return NextResponse.json(
+          { error: imageValidation.error },
+          { status: 400 }
+        )
+      }
+    }
 
     // Get default status
     const defaultStatus = await prisma.maintenanceStatus.findFirst({
@@ -84,6 +144,20 @@ export async function POST(request: Request) {
     // Generate secure completion token
     const { token: completionToken, hash: completionTokenHash } = generateCompletionToken()
 
+    // Parse requested date if provided
+    let parsedDate: Date | null = null
+    if (requestedDate) {
+      try {
+        parsedDate = new Date(requestedDate)
+        if (isNaN(parsedDate.getTime())) {
+          parsedDate = null
+        }
+      } catch (e) {
+        parsedDate = null
+      }
+    }
+
+    // Create maintenance request
     const maintenanceRequest = await prisma.maintenanceRequest.create({
       data: {
         requestNumber: generateRequestNumber(),
@@ -97,6 +171,8 @@ export async function POST(request: Request) {
         requesterName,
         requesterPhone,
         isPublicRequest: isPublicRequest || false,
+        requestedDate: parsedDate,
+        requestedTime: requestedTime || null,
         completionToken: completionTokenHash,
         completionTokenCreatedAt: new Date(),
         completionTokenUsed: false,
@@ -108,6 +184,32 @@ export async function POST(request: Request) {
         status: true,
       },
     })
+
+    console.log('Maintenance request created successfully:', {
+      requestNumber: maintenanceRequest.requestNumber,
+      trackingCode: maintenanceRequest.trackingCode,
+      id: maintenanceRequest.id,
+    })
+
+    // Create attachment if image provided
+    if (attachmentImage) {
+      try {
+        await prisma.attachment.create({
+          data: {
+            requestId: maintenanceRequest.id,
+            fileName: `request-${maintenanceRequest.requestNumber}.jpg`,
+            filePath: attachmentImage, // Store base64 in database
+            fileType: attachmentImage.match(/data:image\/(\w+);/)?.[1] || 'jpeg',
+            fileSize: Math.round((attachmentImage.length * 3) / 4),
+            uploadedBy: 'public-request',
+          },
+        })
+        console.log('Attachment saved successfully')
+      } catch (attachmentError) {
+        console.error('Error saving attachment (request still created):', attachmentError)
+        // Don't fail the request if attachment fails
+      }
+    }
 
     // Return response with completion URL for public requests
     const response: any = {

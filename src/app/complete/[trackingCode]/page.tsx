@@ -6,63 +6,84 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { CheckCircle2, Upload, Loader2, AlertTriangle } from 'lucide-react'
+import { LoadingSpinner } from '@/components/ui/loading-spinner'
+import { useLanguage } from '@/contexts/LanguageContext'
+import { useTranslation } from '@/hooks/useTranslation'
+import { PublicPageHeader } from '@/components/layout/PublicPageHeader'
 
 export default function CompleteMaintenancePage() {
   const params = useParams()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { language, isRTL } = useLanguage()
+  const { t } = useTranslation()
   const trackingCode = params.trackingCode as string
   const token = searchParams.get('token')
 
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [request, setRequest] = useState<any>(null)
+  const [statuses, setStatuses] = useState<any[]>([])
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
 
   const [technicianName, setTechnicianName] = useState('')
   const [technicianPhone, setTechnicianPhone] = useState('')
+  const [selectedStatusId, setSelectedStatusId] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState('')
 
   useEffect(() => {
-    fetchRequest()
-  }, [trackingCode])
-
-  const fetchRequest = async () => {
-    // Check if completion token is provided
-    if (!token) {
-      setError('رابط إتمام البلاغ غير صحيح. يجب أن يحتوي على رمز التفويض.')
-      setLoading(false)
-      return
-    }
-
-    try {
-      const res = await fetch(`/api/maintenance/tracking/${trackingCode}`)
-      if (!res.ok) {
-        setError('رمز المتابعة غير صحيح أو البلاغ غير موجود')
+    const fetchRequest = async () => {
+      if (!token) {
+        setError(t('completion.invalidLink'))
         setLoading(false)
         return
       }
-      const data = await res.json()
-      
-      if (data.status.isCompleted) {
-        setError('هذا البلاغ مكتمل بالفعل')
+
+      try {
+        // Fetch request details
+        const res = await fetch(`/api/maintenance/tracking/${trackingCode}`)
+        if (!res.ok) {
+          setError(t('completion.invalidTracking'))
+          setLoading(false)
+          return
+        }
+        const data = await res.json()
+        
+        if (data.status.isCompleted) {
+          setError(t('completion.alreadyCompleted'))
+        }
+        
+        setRequest(data)
+
+        // Fetch available statuses
+        const statusRes = await fetch('/api/maintenance/statuses')
+        if (statusRes.ok) {
+          const statusData = await statusRes.json()
+          setStatuses(statusData.filter((s: any) => s.isActive))
+          
+          // Set default to completed status
+          const completedStatus = statusData.find((s: any) => s.isCompleted)
+          if (completedStatus) {
+            setSelectedStatusId(completedStatus.id)
+          }
+        }
+      } catch (err) {
+        setError(t('completion.loadError'))
+      } finally {
+        setLoading(false)
       }
-      
-      setRequest(data)
-    } catch (err) {
-      setError('حدث خطأ أثناء تحميل البيانات')
-    } finally {
-      setLoading(false)
     }
-  }
+
+    fetchRequest()
+  }, [trackingCode, token, t])
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
-        alert('حجم الصورة يجب أن يكون أقل من 5 ميجابايت')
+        alert(t('completion.imageTooLarge'))
         return
       }
       setImageFile(file)
@@ -78,12 +99,12 @@ export default function CompleteMaintenancePage() {
     e.preventDefault()
     
     if (!technicianName.trim() || !technicianPhone.trim()) {
-      alert('يرجى إدخال اسم الفني ورقم الجوال')
+      alert(t('completion.requiredInfo'))
       return
     }
 
     if (!token) {
-      alert('رمز التفويض مفقود')
+      alert(t('completion.tokenMissing'))
       return
     }
 
@@ -95,9 +116,9 @@ export default function CompleteMaintenancePage() {
         token,
         technicianName: technicianName.trim(),
         technicianPhone: technicianPhone.trim(),
+        statusId: selectedStatusId || undefined,
       }
 
-      // Add image if provided
       if (imageFile && imagePreview) {
         requestData.completionImage = imagePreview
       }
@@ -111,12 +132,12 @@ export default function CompleteMaintenancePage() {
       const data = await res.json()
 
       if (!res.ok) {
-        throw new Error(data.error || 'فشل إتمام البلاغ')
+        throw new Error(data.error || t('completion.completionError'))
       }
 
       setSuccess(true)
     } catch (err: any) {
-      alert(err.message || 'حدث خطأ أثناء إتمام البلاغ')
+      alert(err.message || t('completion.completionError'))
     } finally {
       setSubmitting(false)
     }
@@ -125,16 +146,17 @@ export default function CompleteMaintenancePage() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <LoadingSpinner size="lg" />
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <div className={`flex min-h-screen items-center justify-center bg-background px-4 ${isRTL ? 'rtl' : 'ltr'}`} dir={isRTL ? 'rtl' : 'ltr'}>
         <Card className="w-full max-w-md">
           <CardContent className="p-6 text-center">
+            <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
             <p className="text-destructive">{error}</p>
           </CardContent>
         </Card>
@@ -144,19 +166,22 @@ export default function CompleteMaintenancePage() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-background px-4 py-8">
-        <div className="mx-auto max-w-2xl">
+      <div className={`min-h-screen bg-background px-4 py-8 ${isRTL ? 'rtl' : 'ltr'}`} dir={isRTL ? 'rtl' : 'ltr'}>
+        {/* Shared Public Page Header with Language Switcher */}
+        <PublicPageHeader />
+        
+        <div className="mx-auto max-w-2xl mt-16">
           <Card className="border-good">
             <CardHeader className="text-center">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-good/10">
                 <CheckCircle2 className="h-8 w-8 text-good" />
               </div>
-              <CardTitle className="text-2xl">تم إتمام البلاغ بنجاح!</CardTitle>
+              <CardTitle className="text-2xl">{t('completion.successTitle')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-center">
-              <p className="text-muted-foreground">شكراً لإتمام بلاغ الصيانة</p>
+              <p className="text-muted-foreground">{t('completion.thankYou')}</p>
               <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">رقم البلاغ</p>
+                <p className="text-sm text-muted-foreground">{t('completion.requestNumber')}</p>
                 <p className="text-2xl font-bold text-primary">{request.requestNumber}</p>
               </div>
             </CardContent>
@@ -167,51 +192,61 @@ export default function CompleteMaintenancePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background px-4 py-8">
-      <div className="mx-auto max-w-2xl">
+    <div className={`min-h-screen bg-background px-4 py-8 ${isRTL ? 'rtl' : 'ltr'}`} dir={isRTL ? 'rtl' : 'ltr'}>
+      {/* Shared Public Page Header with Language Switcher */}
+      <PublicPageHeader />
+      
+      <div className="mx-auto max-w-2xl mt-16">
+
         <Card>
           <CardHeader>
-            <CardTitle>إتمام بلاغ الصيانة</CardTitle>
+            <CardTitle>{t('completion.title')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="rounded-lg bg-muted/50 p-4">
               <div className="grid gap-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">رقم البلاغ:</span>
+                  <span className="text-muted-foreground">{t('completion.requestNumber')}:</span>
                   <span className="font-semibold">{request.requestNumber}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">العقار:</span>
+                  <span className="text-muted-foreground">{t('completion.property')}:</span>
                   <span>{request.property.name}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">الوحدة:</span>
+                  <span className="text-muted-foreground">{t('completion.unit')}:</span>
                   <span>{request.unit.unitNumber}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">المشكلة:</span>
+                  <span className="text-muted-foreground">{t('completion.issue')}:</span>
                   <span>{request.issueDescription}</span>
                 </div>
+                {request.requesterPhone && (
+                  <div className="flex justify-between border-t pt-2 mt-2">
+                    <span className="text-muted-foreground">{isRTL ? 'جوال العميل' : 'Customer Phone'}:</span>
+                    <span className="font-semibold" dir="ltr">{request.requesterPhone}</span>
+                  </div>
+                )}
               </div>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="mb-2 block text-sm font-semibold text-foreground">
-                  اسم الفني <span className="text-destructive">*</span>
+                  {t('completion.technicianName')} <span className="text-destructive">*</span>
                 </label>
                 <Input
                   type="text"
                   value={technicianName}
                   onChange={(e) => setTechnicianName(e.target.value)}
-                  placeholder="أدخل اسم الفني"
+                  placeholder={t('request.fullNamePlaceholder')}
                   required
                 />
               </div>
 
               <div>
                 <label className="mb-2 block text-sm font-semibold text-foreground">
-                  رقم جوال الفني <span className="text-destructive">*</span>
+                  {t('completion.technicianPhone')} <span className="text-destructive">*</span>
                 </label>
                 <Input
                   type="tel"
@@ -219,21 +254,48 @@ export default function CompleteMaintenancePage() {
                   onChange={(e) => setTechnicianPhone(e.target.value)}
                   placeholder="05xxxxxxxx"
                   required
+                  dir="ltr"
                 />
               </div>
 
+              {/* Status Selection */}
+              {statuses.length > 0 && (
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-foreground">
+                    {isRTL ? 'حالة البلاغ' : 'Request Status'} <span className="text-destructive">*</span>
+                  </label>
+                  <select
+                    value={selectedStatusId}
+                    onChange={(e) => setSelectedStatusId(e.target.value)}
+                    required
+                    className="h-10 w-full rounded-lg border border-input bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    {statuses.map((status) => (
+                      <option key={status.id} value={status.id}>
+                        {status.icon && `${status.icon} `}{status.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {isRTL 
+                      ? 'اختر الحالة المناسبة للبلاغ' 
+                      : 'Select the appropriate status for this request'}
+                  </p>
+                </div>
+              )}
+
               <div>
                 <label className="mb-2 block text-sm font-semibold text-foreground">
-                  صورة إثبات التنفيذ (اختياري)
+                  {t('completion.completionImage')} {t('completion.imageOptional')}
                 </label>
                 <div className="flex flex-col gap-2">
                   <label className="flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-input p-6 transition-colors hover:border-primary">
                     <div className="text-center">
                       <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
                       <p className="mt-2 text-sm text-muted-foreground">
-                        اضغط لاختيار صورة
+                        {t('completion.uploadImage')}
                       </p>
-                      <p className="text-xs text-muted-foreground">الحجم الأقصى: 5 ميجابايت</p>
+                      <p className="text-xs text-muted-foreground">{t('completion.maxFileSize')}</p>
                     </div>
                     <input
                       type="file"
@@ -246,20 +308,20 @@ export default function CompleteMaintenancePage() {
                     <div className="relative">
                       <img
                         src={imagePreview}
-                        alt="معاينة"
+                        alt="Preview"
                         className="h-48 w-full rounded-lg object-cover"
                       />
                       <Button
                         type="button"
                         variant="destructive"
                         size="sm"
-                        className="absolute left-2 top-2"
+                        className={`absolute top-2 ${isRTL ? 'right-2' : 'left-2'}`}
                         onClick={() => {
                           setImageFile(null)
                           setImagePreview('')
                         }}
                       >
-                        إزالة
+                        {t('completion.removeImage')}
                       </Button>
                     </div>
                   )}
@@ -269,13 +331,13 @@ export default function CompleteMaintenancePage() {
               <Button type="submit" className="w-full" size="lg" disabled={submitting}>
                 {submitting ? (
                   <>
-                    <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-                    جاري الإتمام...
+                    <Loader2 className={`h-4 w-4 animate-spin ${isRTL ? 'mr-2' : 'ml-2'}`} />
+                    {t('completion.completing')}
                   </>
                 ) : (
                   <>
-                    <CheckCircle2 className="ml-2 h-4 w-4" />
-                    تأكيد إتمام البلاغ
+                    <CheckCircle2 className={`h-4 w-4 ${isRTL ? 'mr-2' : 'ml-2'}`} />
+                    {t('completion.confirmCompletion')}
                   </>
                 )}
               </Button>

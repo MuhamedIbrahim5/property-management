@@ -1,29 +1,12 @@
 'use client'
 
-import { Settings as SettingsIcon, Wrench, Tag, Link, MessageSquare } from 'lucide-react'
+import { Settings as SettingsIcon, Link, MessageSquare, Printer } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useEffect, useState } from 'react'
 import { getAppUrl, buildAppUrl } from '@/lib/url'
-
-type MaintenanceStatus = {
-  id: string
-  name: string
-  color: string
-  icon: string | null
-  order: number
-  isActive: boolean
-  isDefault: boolean
-  isCompleted: boolean
-}
-
-type MaintenanceType = {
-  id: string
-  name: string
-  color: string
-  isActive: boolean
-}
+import { useTranslation } from '@/hooks/useTranslation'
 
 type Setting = {
   key: string
@@ -31,8 +14,7 @@ type Setting = {
 }
 
 export default function SettingsPage() {
-  const [maintenanceStatuses, setMaintenanceStatuses] = useState<MaintenanceStatus[]>([])
-  const [maintenanceTypes, setMaintenanceTypes] = useState<MaintenanceType[]>([])
+  const { t } = useTranslation()
   const [settings, setSettings] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [showSystemDialog, setShowSystemDialog] = useState(false)
@@ -44,20 +26,40 @@ export default function SettingsPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch statuses
-        const statusesRes = await fetch('/api/maintenance/statuses')
-        const statusesData = await statusesRes.json()
-        setMaintenanceStatuses(statusesData)
-
-        // Fetch types
-        const typesRes = await fetch('/api/maintenance/types')
-        const typesData = await typesRes.json()
-        setMaintenanceTypes(typesData)
-
-        // Fetch settings
-        const settingsRes = await fetch('/api/settings')
+        // Fetch settings with credentials to include cookies
+        const settingsRes = await fetch('/api/settings', {
+          credentials: 'include'
+        })
+        
+        if (!settingsRes.ok) {
+          // Handle specific errors
+          if (settingsRes.status === 401) {
+            console.error('Authentication required. Redirecting to login...')
+            alert('انتهت صلاحية الجلسة. سيتم إعادة التوجيه لتسجيل الدخول.')
+            window.location.href = '/login'
+            return
+          }
+          if (settingsRes.status === 403) {
+            console.error('Insufficient permissions')
+            const errorData = await settingsRes.json().catch(() => ({}))
+            console.error('Error details:', errorData)
+            alert('عذراً، ليس لديك صلاحية للوصول إلى هذه الصفحة.\n\nيُرجى تسجيل الخروج ثم الدخول مرة أخرى.')
+            return
+          }
+          throw new Error(`HTTP ${settingsRes.status}`)
+        }
+        
         const settingsData = await settingsRes.json()
+        console.log('Settings API Response:', settingsData)
+        
+        // Validate that settingsData is an array
+        if (!Array.isArray(settingsData)) {
+          console.error('Settings data is not an array:', settingsData)
+          throw new Error('Invalid settings format')
+        }
+        
         const settingsMap = Object.fromEntries(settingsData.map((s: Setting) => [s.key, s.value]))
+        console.log('Settings Map:', settingsMap)
         setSettings(settingsMap)
       } catch (error) {
         console.error('Error fetching settings:', error)
@@ -75,14 +77,14 @@ export default function SettingsPage() {
 
   const handleEditSystem = () => {
     setSystemForm({
-      company_name: settings.company_name || 'شركة إدارة الأملاك'
+      company_name: settings.company_name || t('auth.systemTitle')
     })
     setShowSystemDialog(true)
   }
 
   const handleEditWhatsApp = () => {
     setWhatsappForm({
-      whatsapp_number: settings.whatsapp_number || '966506539610',
+      whatsapp_number: settings.whatsapp_number || '',
       whatsapp_enabled: settings.whatsapp_enabled || 'true'
     })
     setShowWhatsAppDialog(true)
@@ -103,10 +105,10 @@ export default function SettingsPage() {
       
       setSettings({ ...settings, company_name: systemForm.company_name })
       setShowSystemDialog(false)
-      alert('تم حفظ الإعدادات بنجاح')
+      alert(t('settings.settingsSaved'))
     } catch (error) {
       console.error('Error saving settings:', error)
-      alert('حدث خطأ أثناء الحفظ')
+      alert(t('messages.error'))
     } finally {
       setSaving(false)
     }
@@ -115,35 +117,77 @@ export default function SettingsPage() {
   const handleSaveWhatsApp = async () => {
     setSaving(true)
     try {
-      await Promise.all([
-        fetch('/api/settings', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            key: 'whatsapp_number',
-            value: whatsappForm.whatsapp_number
-          })
-        }),
-        fetch('/api/settings', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            key: 'whatsapp_enabled',
-            value: whatsappForm.whatsapp_enabled
-          })
-        })
-      ])
+      console.log('Saving WhatsApp settings:', {
+        whatsapp_number: whatsappForm.whatsapp_number,
+        whatsapp_enabled: whatsappForm.whatsapp_enabled
+      })
       
+      // Save whatsapp_number
+      const numberRes = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          key: 'whatsapp_number',
+          value: whatsappForm.whatsapp_number
+        })
+      })
+      
+      console.log('Number save response:', numberRes.status, numberRes.statusText)
+      
+      if (!numberRes.ok) {
+        const errorData = await numberRes.json().catch(() => ({ error: 'Unknown error' }))
+        console.error('Failed to save whatsapp_number:', errorData)
+        
+        // Special handling for permission errors
+        if (numberRes.status === 403) {
+          alert('انتهت صلاحية الجلسة أو تغيرت الصلاحيات.\n\nيُرجى تسجيل الخروج ثم الدخول مرة أخرى.')
+          return
+        }
+        
+        throw new Error(`Failed to save number: ${errorData.error || numberRes.statusText}`)
+      }
+      
+      // Save whatsapp_enabled
+      const enabledRes = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          key: 'whatsapp_enabled',
+          value: whatsappForm.whatsapp_enabled
+        })
+      })
+      
+      console.log('Enabled save response:', enabledRes.status, enabledRes.statusText)
+      
+      if (!enabledRes.ok) {
+        const errorData = await enabledRes.json().catch(() => ({ error: 'Unknown error' }))
+        console.error('Failed to save whatsapp_enabled:', errorData)
+        
+        // Special handling for permission errors
+        if (enabledRes.status === 403) {
+          alert('انتهت صلاحية الجلسة أو تغيرت الصلاحيات.\n\nيُرجى تسجيل الخروج ثم الدخول مرة أخرى.')
+          return
+        }
+        
+        throw new Error(`Failed to save status: ${errorData.error || enabledRes.statusText}`)
+      }
+      
+      console.log('Both settings saved successfully')
+      
+      // Update local state
       setSettings({
         ...settings,
         whatsapp_number: whatsappForm.whatsapp_number,
         whatsapp_enabled: whatsappForm.whatsapp_enabled
       })
+      
       setShowWhatsAppDialog(false)
-      alert('تم حفظ إعدادات WhatsApp بنجاح')
+      alert(t('settings.settingsSaved'))
     } catch (error) {
       console.error('Error saving WhatsApp settings:', error)
-      alert('حدث خطأ أثناء الحفظ')
+      alert(error instanceof Error ? error.message : t('messages.error'))
     } finally {
       setSaving(false)
     }
@@ -152,7 +196,7 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
-        <p className="text-muted-foreground">جاري التحميل...</p>
+        <p className="text-muted-foreground">{t('common.loading')}</p>
       </div>
     )
   }
@@ -161,9 +205,9 @@ export default function SettingsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold text-foreground">الإعدادات</h2>
+        <h2 className="text-2xl font-bold text-foreground">{t('settings.title')}</h2>
         <p className="text-sm text-muted-foreground">
-          إدارة إعدادات النظام والتكوينات
+          {t('settings.subtitle')}
         </p>
       </div>
 
@@ -173,20 +217,20 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <SettingsIcon className="h-5 w-5" />
-              إعدادات النظام
+              {t('settings.systemSettings')}
             </CardTitle>
-            <CardDescription>الإعدادات الأساسية للنظام</CardDescription>
+            <CardDescription>{t('settings.subtitle')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <label className="text-sm font-semibold text-foreground">اسم الشركة</label>
+              <label className="text-sm font-semibold text-foreground">{t('settings.companyName')}</label>
               <p className="mt-1 text-sm text-muted-foreground">
-                {settings.company_name || 'شركة إدارة الأملاك'}
+                {settings.company_name || t('auth.systemTitle')}
               </p>
             </div>
 
             <div>
-              <label className="text-sm font-semibold text-foreground">رابط النظام</label>
+              <label className="text-sm font-semibold text-foreground">{t('settings.appUrl')}</label>
               <div className="mt-1 flex items-center gap-2">
                 <code className="flex-1 rounded-md bg-muted/50 px-3 py-2 text-xs">
                   {getAppUrl()}
@@ -195,7 +239,7 @@ export default function SettingsPage() {
             </div>
 
             <Button variant="outline" className="w-full" onClick={handleEditSystem}>
-              تعديل الإعدادات
+              {t('settings.editSettings')}
             </Button>
           </CardContent>
         </Card>
@@ -205,34 +249,34 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <MessageSquare className="h-5 w-5" />
-              إعدادات WhatsApp
+              {t('settings.whatsappSettings')}
             </CardTitle>
-            <CardDescription>تكوين WhatsApp للنظام</CardDescription>
+            <CardDescription>{t('settings.whatsappSettings')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <label className="text-sm font-semibold text-foreground">رقم WhatsApp</label>
+              <label className="text-sm font-semibold text-foreground">{t('settings.whatsappNumber')}</label>
               <div className="mt-1 flex items-center gap-2">
-                <code className="flex-1 rounded-md bg-muted/50 px-3 py-2 text-sm">
-                  {settings.whatsapp_number || '966501234567'}
+                <code className="flex-1 rounded-md bg-muted/50 px-3 py-2 text-sm" dir="ltr">
+                  {settings.whatsapp_number || t('settings.notConfigured')}
                 </code>
                 <Badge variant={settings.whatsapp_enabled === 'true' ? 'success' : 'secondary'}>
-                  {settings.whatsapp_enabled === 'true' ? 'مفعّل' : 'معطّل'}
+                  {settings.whatsapp_enabled === 'true' ? t('settings.enabled') : t('settings.disabled')}
                 </Badge>
               </div>
             </div>
 
             <div>
-              <label className="text-sm font-semibold text-foreground">حالة التفعيل</label>
+              <label className="text-sm font-semibold text-foreground">{t('common.status')}</label>
               <p className="mt-1 text-sm text-muted-foreground">
                 {settings.whatsapp_enabled === 'true'
-                  ? 'زر WhatsApp مفعّل في نموذج طلب الصيانة'
-                  : 'زر WhatsApp معطّل'}
+                  ? t('settings.enabled')
+                  : t('settings.disabled')}
               </p>
             </div>
 
             <Button variant="outline" className="w-full" onClick={handleEditWhatsApp}>
-              تعديل إعدادات WhatsApp
+              {t('settings.editSettings')}
             </Button>
           </CardContent>
         </Card>
@@ -242,13 +286,13 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Link className="h-5 w-5" />
-              رابط طلب الصيانة العام
+              {t('settings.publicRequestUrl')}
             </CardTitle>
-            <CardDescription>رابط نموذج طلب الصيانة للمستأجرين</CardDescription>
+            <CardDescription>{t('auth.publicRequest')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <label className="text-sm font-semibold text-foreground">الرابط العام</label>
+              <label className="text-sm font-semibold text-foreground">{t('settings.publicRequestUrl')}</label>
               <div className="mt-1 flex items-center gap-2">
                 <code className="flex-1 rounded-md bg-muted/50 px-3 py-2 text-sm">
                   {buildAppUrl('/request')}
@@ -258,96 +302,28 @@ export default function SettingsPage() {
                   size="sm"
                   onClick={() => copyToClipboard(buildAppUrl('/request'))}
                 >
-                  نسخ
+                  {t('common.view')}
                 </Button>
               </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                يمكن للمستأجرين استخدام هذا الرابط لإرسال طلبات الصيانة بدون تسجيل دخول
-              </p>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Maintenance Statuses */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Wrench className="h-5 w-5" />
-              حالات الصيانة
-            </CardTitle>
-            <CardDescription>الحالات المتاحة لبلاغات الصيانة</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {maintenanceStatuses.map((status) => (
-                <div
-                  key={status.id}
-                  className="flex items-center justify-between rounded-lg border border-border bg-muted/20 p-3"
-                >
-                  <div className="flex items-center gap-3">
-                    {status.icon && <span className="text-lg">{status.icon}</span>}
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">{status.name}</p>
-                      <div className="mt-1 flex gap-2">
-                        {status.isDefault && (
-                          <Badge variant="outline" className="text-xs">
-                            افتراضي
-                          </Badge>
-                        )}
-                        {status.isCompleted && (
-                          <Badge variant="success" className="text-xs">
-                            مكتمل
-                          </Badge>
-                        )}
-                        {!status.isActive && (
-                          <Badge variant="secondary" className="text-xs">
-                            معطّل
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div
-                    className="h-4 w-4 rounded-full border-2"
-                    style={{ backgroundColor: status.color }}
-                  />
+            
+            <div className="rounded-lg border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-yellow-50 p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-bold text-slate-800">{t('poster.printPoster')}</p>
+                  <p className="text-xs text-slate-600">{t('poster.printPosterEn')}</p>
                 </div>
-              ))}
-            </div>
-            <Button variant="outline" className="mt-4 w-full">
-              إدارة الحالات
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Maintenance Types */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Tag className="h-5 w-5" />
-              أنواع الصيانة
-            </CardTitle>
-            <CardDescription>التصنيفات المتاحة لبلاغات الصيانة</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {maintenanceTypes.map((type) => (
-                <Badge
-                  key={type.id}
-                  variant="outline"
-                  className="px-3 py-1"
-                  style={{
-                    borderColor: type.color,
-                    color: type.color,
-                  }}
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="gap-2 bg-slate-700 hover:bg-slate-800"
+                  onClick={() => window.open('/dashboard/maintenance/print', '_blank')}
                 >
-                  {type.name}
-                </Badge>
-              ))}
+                  <Printer className="h-4 w-4" />
+                  {t('poster.print')}
+                </Button>
+              </div>
             </div>
-            <Button variant="outline" className="mt-4 w-full">
-              إدارة الأنواع
-            </Button>
           </CardContent>
         </Card>
       </div>
@@ -358,28 +334,28 @@ export default function SettingsPage() {
           <Card className="w-full max-w-md">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold">تعديل إعدادات النظام</h3>
+                <h3 className="text-lg font-bold">{t('settings.editSettings')}</h3>
                 <Button variant="ghost" size="sm" onClick={() => setShowSystemDialog(false)}>
                   ✕
                 </Button>
               </div>
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium">اسم الشركة</label>
+                  <label className="text-sm font-medium">{t('settings.companyName')}</label>
                   <input
                     type="text"
                     value={systemForm.company_name}
                     onChange={(e) => setSystemForm({ company_name: e.target.value })}
                     className="mt-1 w-full px-3 py-2 border rounded-md"
-                    placeholder="اسم الشركة"
+                    placeholder={t('settings.companyName')}
                   />
                 </div>
                 <div className="flex gap-2">
                   <Button onClick={handleSaveSystem} disabled={saving} className="flex-1">
-                    {saving ? 'جاري الحفظ...' : 'حفظ'}
+                    {saving ? t('common.loading') : t('common.save')}
                   </Button>
                   <Button variant="outline" onClick={() => setShowSystemDialog(false)} className="flex-1">
-                    إلغاء
+                    {t('common.cancel')}
                   </Button>
                 </div>
               </div>
@@ -394,14 +370,14 @@ export default function SettingsPage() {
           <Card className="w-full max-w-md">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold">تعديل إعدادات WhatsApp</h3>
+                <h3 className="text-lg font-bold">{t('settings.editSettings')}</h3>
                 <Button variant="ghost" size="sm" onClick={() => setShowWhatsAppDialog(false)}>
                   ✕
                 </Button>
               </div>
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium">رقم WhatsApp</label>
+                  <label className="text-sm font-medium">{t('settings.whatsappNumber')}</label>
                   <input
                     type="text"
                     value={whatsappForm.whatsapp_number}
@@ -410,9 +386,6 @@ export default function SettingsPage() {
                     placeholder="966506539610"
                     dir="ltr"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    مثال: 966506539610 (بدون + أو مسافات)
-                  </p>
                 </div>
                 <div>
                   <label className="flex items-center gap-2">
@@ -422,15 +395,15 @@ export default function SettingsPage() {
                       onChange={(e) => setWhatsappForm({ ...whatsappForm, whatsapp_enabled: e.target.checked ? 'true' : 'false' })}
                       className="w-4 h-4"
                     />
-                    <span className="text-sm font-medium">تفعيل WhatsApp</span>
+                    <span className="text-sm font-medium">{t('settings.whatsappEnabled')}</span>
                   </label>
                 </div>
                 <div className="flex gap-2">
                   <Button onClick={handleSaveWhatsApp} disabled={saving} className="flex-1">
-                    {saving ? 'جاري الحفظ...' : 'حفظ'}
+                    {saving ? t('common.loading') : t('common.save')}
                   </Button>
                   <Button variant="outline" onClick={() => setShowWhatsAppDialog(false)} className="flex-1">
-                    إلغاء
+                    {t('common.cancel')}
                   </Button>
                 </div>
               </div>

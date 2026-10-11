@@ -1,10 +1,14 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Wrench, Plus, Search, Filter, X, Trash2 } from 'lucide-react'
+import { Wrench, Plus, Search, Filter, X, Trash2, FileText } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { useTranslation } from '@/hooks/useTranslation'
+import { useLanguage } from '@/contexts/LanguageContext'
+import { translateStatus, translateMaintenanceType } from '@/lib/data-translation'
+import { cn } from '@/lib/utils'
 
 type Request = {
   id: string
@@ -17,19 +21,26 @@ type Request = {
   type: { name: string; id: string }
   status: { name: string; id: string }
   assignee: { id: string; name: string } | null
+  attachments?: Array<{
+    id: string
+    fileName: string
+    filePath: string
+    fileType: string
+    createdAt: Date
+  }>
 }
 
 export default function MaintenanceClient({
   initialRequests,
   statuses,
   types,
-  users
 }: {
   initialRequests: Request[]
-  statuses: { id: string; name: string }[]
+  statuses: { id: string; name: string; isCompleted?: boolean }[]
   types: { id: string; name: string }[]
-  users: { id: string; name: string }[]
 }) {
+  const { t } = useTranslation()
+  const { language, isRTL } = useLanguage()
   const [requests, setRequests] = useState<Request[]>(initialRequests)
   const [searchTerm, setSearchTerm] = useState('')
   const [showFilters, setShowFilters] = useState(false)
@@ -42,7 +53,28 @@ export default function MaintenanceClient({
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null)
   const [deletingRequest, setDeletingRequest] = useState<Request | null>(null)
   const [newStatus, setNewStatus] = useState('')
-  const [newAssignee, setNewAssignee] = useState('')
+  const [technicianName, setTechnicianName] = useState('')
+  const [technicianPhone, setTechnicianPhone] = useState('')
+
+  // Convert 24-hour time (HH:MM) to 12-hour format with AM/PM
+  const formatTime12Hour = (time24: string, rtl: boolean): string => {
+    if (!time24) return ''
+    
+    const [hourStr, minuteStr] = time24.split(':')
+    let hour = parseInt(hourStr)
+    const minute = minuteStr || '00'
+    
+    let period = ''
+    if (hour >= 12) {
+      period = rtl ? 'مساءً' : 'PM'
+      if (hour > 12) hour -= 12
+    } else {
+      period = rtl ? 'صباحاً' : 'AM'
+      if (hour === 0) hour = 12
+    }
+    
+    return `${hour}:${minute} ${period}`
+  }
 
   const filteredRequests = useMemo(() => {
     return requests.filter(req => {
@@ -63,10 +95,13 @@ export default function MaintenanceClient({
     })
   }, [requests, searchTerm, selectedStatus, selectedType, selectedPriority, selectedTechnician])
 
-  const getStatusVariant = (status: string) => {
-    if (status.includes('مكتمل')) return 'success'
-    if (status.includes('التنفيذ')) return 'warning'
-    if (status.includes('ملغي')) return 'destructive'
+  const getStatusVariant = (statusName: string) => {
+    // Status variant based on common patterns
+    // This works with any language since statuses are from database
+    const lowerStatus = statusName.toLowerCase()
+    if (lowerStatus.includes('complet') || lowerStatus.includes('مكتمل') || lowerStatus.includes('done')) return 'success'
+    if (lowerStatus.includes('progress') || lowerStatus.includes('التنفيذ') || lowerStatus.includes('working')) return 'warning'
+    if (lowerStatus.includes('cancel') || lowerStatus.includes('ملغي') || lowerStatus.includes('reject')) return 'destructive'
     return 'default'
   }
 
@@ -77,29 +112,56 @@ export default function MaintenanceClient({
   }
 
   const getPriorityText = (priority: string) => {
-    if (priority === 'urgent') return 'عاجل'
-    if (priority === 'normal') return 'عادي'
-    return 'منخفض'
+    switch (priority) {
+      case 'urgent': return t('maintenance.priorityLevels.urgent')
+      case 'normal': return t('maintenance.priorityLevels.normal')
+      case 'low': return t('maintenance.priorityLevels.low')
+      default: return priority
+    }
   }
 
   const handleViewRequest = (req: Request) => {
+    console.log('=== Opening Request Details ===')
+    console.log('Request Number:', req.requestNumber)
+    console.log('Has attachments field:', 'attachments' in req)
+    console.log('Attachments:', req.attachments)
+    console.log('Attachments count:', req.attachments?.length || 0)
+    
     setSelectedRequest(req)
     setNewStatus(req.status.id)
-    setNewAssignee(req.assignee?.id || '')
+    setTechnicianName((req as any).technicianName || '')
+    setTechnicianPhone((req as any).technicianPhone || '')
     setShowDetailDialog(true)
   }
 
   const handleUpdateRequest = async () => {
     if (!selectedRequest) return
     
+    // Check if the new status is "completed"
+    const newStatusObj = statuses.find(s => s.id === newStatus)
+    const isCompletedStatus = newStatusObj?.isCompleted || false
+    
+    // If status is completed, validate technician name
+    if (isCompletedStatus && !technicianName.trim()) {
+      alert(t('maintenance.technicianNameRequired') || (isRTL ? 'اسم الفني مطلوب' : 'Technician name is required'))
+      return
+    }
+    
     try {
+      const updateData: any = {
+        statusId: newStatus,
+      }
+      
+      // Add technician data if status is completed
+      if (isCompletedStatus) {
+        updateData.technicianName = technicianName.trim()
+        updateData.technicianPhone = technicianPhone.trim() || null
+      }
+      
       const res = await fetch(`/api/maintenance/${selectedRequest.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          statusId: newStatus,
-          assigneeId: newAssignee || null
-        })
+        body: JSON.stringify(updateData)
       })
       
       if (!res.ok) throw new Error('Failed to update')
@@ -108,14 +170,15 @@ export default function MaintenanceClient({
       setRequests(reqs => reqs.map(r => r.id === updated.id ? {
         ...r,
         status: statuses.find(s => s.id === updated.statusId)!,
-        assignee: updated.assigneeId ? users.find(u => u.id === updated.assigneeId)! : null
+        technicianName: updated.technicianName,
+        technicianPhone: updated.technicianPhone,
       } : r))
       
       setShowDetailDialog(false)
-      alert('تم التحديث بنجاح')
+      alert(t('maintenance.updateSuccess'))
     } catch (error) {
       console.error('Error updating request:', error)
-      alert('حدث خطأ أثناء التحديث')
+      alert(t('maintenance.updateError'))
     }
   }
 
@@ -140,7 +203,7 @@ export default function MaintenanceClient({
       setDeletingRequest(null)
     } catch (error: any) {
       console.error('Error deleting request:', error)
-      alert(error.message || 'حدث خطأ أثناء الحذف')
+      alert(error.message || t('maintenance.deleteError'))
     }
   }
 
@@ -157,9 +220,9 @@ export default function MaintenanceClient({
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">بلاغات الصيانة</h2>
+            <h2 className="text-2xl font-bold text-foreground">{t('maintenance.title')}</h2>
             <p className="text-sm text-muted-foreground">
-              إدارة ومتابعة طلبات الصيانة ({filteredRequests.length} بلاغ)
+              {t('maintenance.subtitle')} ({filteredRequests.length} {t('maintenance.requestCount').replace('{count}', '')})
             </p>
           </div>
         </div>
@@ -171,7 +234,7 @@ export default function MaintenanceClient({
                 <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="text"
-                  placeholder="البحث في البلاغات..."
+                  placeholder={t('maintenance.searchPlaceholder')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="h-10 w-full rounded-lg border border-input bg-white pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
@@ -183,7 +246,7 @@ export default function MaintenanceClient({
                 onClick={() => setShowFilters(!showFilters)}
               >
                 <Filter className="h-4 w-4" />
-                تصفية
+                {t('maintenance.filters')}
               </Button>
               {(selectedStatus || selectedType || selectedPriority || selectedTechnician) && (
                 <Button variant="ghost" size="sm" onClick={clearFilters}>
@@ -195,47 +258,55 @@ export default function MaintenanceClient({
             {showFilters && (
               <div className="mt-4 grid grid-cols-4 gap-3">
                 <div>
-                  <label className="text-xs font-medium">الحالة</label>
+                  <label className="text-xs font-medium">{t('maintenance.status')}</label>
                   <select
                     value={selectedStatus}
                     onChange={(e) => setSelectedStatus(e.target.value)}
                     className="w-full px-3 py-2 border rounded-md text-sm"
                   >
-                    <option value="">الكل</option>
-                    {statuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    <option value="">{t('common.all')}</option>
+                    {statuses.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {translateStatus(s.name, language)}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-medium">النوع</label>
+                  <label className="text-xs font-medium">{t('maintenance.type')}</label>
                   <select
                     value={selectedType}
                     onChange={(e) => setSelectedType(e.target.value)}
                     className="w-full px-3 py-2 border rounded-md text-sm"
                   >
-                    <option value="">الكل</option>
-                    {types.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    <option value="">{t('common.all')}</option>
+                    {types.map(type => (
+                      <option key={type.id} value={type.id}>
+                        {translateMaintenanceType(type.name, language)}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-medium">الأولوية</label>
+                  <label className="text-xs font-medium">{t('maintenance.priority')}</label>
                   <select
                     value={selectedPriority}
                     onChange={(e) => setSelectedPriority(e.target.value)}
                     className="w-full px-3 py-2 border rounded-md text-sm"
                   >
-                    <option value="">الكل</option>
-                    <option value="low">منخفض</option>
-                    <option value="normal">عادي</option>
-                    <option value="urgent">عاجل</option>
+                    <option value="">{t('common.all')}</option>
+                    <option value="low">{t('maintenance.priorityLevels.low')}</option>
+                    <option value="normal">{t('maintenance.priorityLevels.normal')}</option>
+                    <option value="urgent">{t('maintenance.priorityLevels.urgent')}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-medium">الفني</label>
+                  <label className="text-xs font-medium">{t('maintenance.technician')}</label>
                   <input
                     type="text"
                     value={selectedTechnician}
                     onChange={(e) => setSelectedTechnician(e.target.value)}
-                    placeholder="اسم أو رقم الفني"
+                    placeholder={t('maintenance.technicianPlaceholder')}
                     className="w-full px-3 py-2 border rounded-md text-sm"
                   />
                 </div>
@@ -248,11 +319,11 @@ export default function MaintenanceClient({
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-16">
               <Wrench className="h-12 w-12 text-muted-foreground/50" />
-              <h3 className="mt-4 text-lg font-semibold text-foreground">لا توجد بلاغات</h3>
+              <h3 className="mt-4 text-lg font-semibold text-foreground">{t('maintenance.noRequests')}</h3>
               <p className="mt-2 text-sm text-muted-foreground">
                 {searchTerm || selectedStatus || selectedType || selectedPriority
-                  ? 'لا توجد نتائج للبحث'
-                  : 'لم يتم إنشاء أي بلاغات صيانة بعد'}
+                  ? t('maintenance.noSearchResults')
+                  : t('maintenance.noRequestsYet')}
               </p>
             </CardContent>
           </Card>
@@ -263,46 +334,66 @@ export default function MaintenanceClient({
                 <table className="w-full">
                   <thead className="bg-muted/30">
                     <tr className="border-b border-border">
-                      <th className="px-4 py-3 text-right text-xs font-bold">رقم البلاغ</th>
-                      <th className="px-4 py-3 text-right text-xs font-bold">العقار / الوحدة</th>
-                      <th className="px-4 py-3 text-right text-xs font-bold">المشكلة</th>
-                      <th className="px-4 py-3 text-right text-xs font-bold">النوع</th>
-                      <th className="px-4 py-3 text-right text-xs font-bold">الحالة</th>
-                      <th className="px-4 py-3 text-right text-xs font-bold">الأولوية</th>
-                      <th className="px-4 py-3 text-right text-xs font-bold">المسؤول</th>
-                      <th className="px-4 py-3 text-right text-xs font-bold">الفني</th>
-                      <th className="px-4 py-3 text-right text-xs font-bold">التاريخ</th>
-                      <th className="px-4 py-3 text-right text-xs font-bold">الإجراءات</th>
+                      <th className={cn("px-3 py-3 text-xs font-bold whitespace-nowrap", isRTL ? "text-right" : "text-left")}>
+                        {t('maintenance.requestNumber')}
+                      </th>
+                      <th className={cn("px-3 py-3 text-xs font-bold whitespace-nowrap", isRTL ? "text-right" : "text-left")}>
+                        {t('maintenance.propertyAndUnit')}
+                      </th>
+                      <th className={cn("px-3 py-3 text-xs font-bold whitespace-nowrap", isRTL ? "text-right" : "text-left")}>
+                        {t('maintenance.issue')}
+                      </th>
+                      <th className={cn("px-3 py-3 text-xs font-bold whitespace-nowrap", isRTL ? "text-right" : "text-left")}>
+                        {t('maintenance.type')}
+                      </th>
+                      <th className={cn("px-3 py-3 text-xs font-bold whitespace-nowrap", isRTL ? "text-right" : "text-left")}>
+                        {t('maintenance.status')}
+                      </th>
+                      <th className={cn("px-3 py-3 text-xs font-bold whitespace-nowrap", isRTL ? "text-right" : "text-left")}>
+                        {t('maintenance.priority')}
+                      </th>
+                      <th className={cn("px-3 py-3 text-xs font-bold whitespace-nowrap", isRTL ? "text-right" : "text-left")}>
+                        {t('maintenance.technician')}
+                      </th>
+                      <th className={cn("px-3 py-3 text-xs font-bold whitespace-nowrap", isRTL ? "text-right" : "text-left")}>
+                        {t('maintenance.dateCreated')}
+                      </th>
+                      <th className={cn("px-3 py-3 text-xs font-bold whitespace-nowrap", isRTL ? "text-right" : "text-left")}>
+                        {t('common.actions')}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredRequests.map((request) => (
                       <tr key={request.id} className="border-b border-border hover:bg-muted/30 transition-colors">
-                        <td className="px-4 py-3">
-                          <span className="text-sm font-semibold text-primary">{request.requestNumber}</span>
+                        <td className="px-3 py-3">
+                          <span className="text-sm font-semibold text-primary whitespace-nowrap">{request.requestNumber}</span>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3">
                           <div>
                             <p className="text-sm font-medium">{request.property.name}</p>
                             <p className="text-xs text-muted-foreground">{request.unit.unitNumber}</p>
                           </div>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3">
                           <p className="text-sm line-clamp-2 max-w-xs">{request.issueDescription}</p>
                         </td>
-                        <td className="px-4 py-3">
-                          <Badge variant="outline" className="text-xs">{request.type.name}</Badge>
+                        <td className="px-3 py-3">
+                          <Badge variant="outline" className="text-xs whitespace-nowrap">
+                            {translateMaintenanceType(request.type.name, language)}
+                          </Badge>
                         </td>
-                        <td className="px-4 py-3">
-                          <Badge variant={getStatusVariant(request.status.name)}>{request.status.name}</Badge>
+                        <td className="px-3 py-3">
+                          <Badge variant={getStatusVariant(request.status.name)} className="whitespace-nowrap">
+                            {translateStatus(request.status.name, language)}
+                          </Badge>
                         </td>
-                        <td className="px-4 py-3">
-                          <Badge variant={getPriorityVariant(request.priority)}>{getPriorityText(request.priority)}</Badge>
+                        <td className="px-3 py-3">
+                          <Badge variant={getPriorityVariant(request.priority)} className="whitespace-nowrap">
+                            {getPriorityText(request.priority)}
+                          </Badge>
                         </td>
-                        <td className="px-4 py-3">
-                          <span className="text-sm text-muted-foreground">{request.assignee?.name || 'غير محدد'}</span>
-                        </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3">
                           {(request as any).technicianName ? (
                             <div>
                               <p className="text-sm font-medium">{(request as any).technicianName}</p>
@@ -312,9 +403,9 @@ export default function MaintenanceClient({
                             <span className="text-sm text-muted-foreground">-</span>
                           )}
                         </td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(request.createdAt).toLocaleDateString('ar-SA', {
+                        <td className="px-3 py-3">
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            {new Date(request.createdAt).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US', {
                               year: 'numeric',
                               month: 'short',
                               day: 'numeric',
@@ -323,7 +414,7 @@ export default function MaintenanceClient({
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex gap-2">
-                            <Button variant="ghost" size="sm" onClick={() => handleViewRequest(request)}>عرض</Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleViewRequest(request)}>{t('common.view')}</Button>
                             <Button variant="destructive" size="sm" onClick={() => handleDelete(request)}>
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -344,53 +435,115 @@ export default function MaintenanceClient({
           <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold">تفاصيل البلاغ - {selectedRequest.requestNumber}</h3>
+                <h3 className="text-lg font-bold">{t('maintenance.requestDetails')} - {selectedRequest.requestNumber}</h3>
                 <Button variant="ghost" size="sm" onClick={() => setShowDetailDialog(false)}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium">وصف المشكلة</label>
+                  <label className="text-sm font-medium">{t('maintenance.issueDescription')}</label>
                   <p className="mt-1 text-sm text-muted-foreground">{selectedRequest.issueDescription}</p>
                 </div>
+                
+                {/* Display request attachments if any */}
+                {(() => {
+                  const hasAttachments = selectedRequest.attachments && selectedRequest.attachments.length > 0
+                  console.log('=== Attachments Display Check ===')
+                  console.log('selectedRequest.attachments:', selectedRequest.attachments)
+                  console.log('Is array:', Array.isArray(selectedRequest.attachments))
+                  console.log('Length:', selectedRequest.attachments?.length)
+                  console.log('Condition result:', hasAttachments)
+                  
+                  return hasAttachments ? (
+                    <div>
+                      <label className="text-sm font-medium">{t('maintenance.attachments')}</label>
+                      <div className="mt-2 grid grid-cols-2 gap-3">
+                        {selectedRequest.attachments!.map((attachment) => {
+                          console.log('Rendering attachment:', attachment.fileName)
+                          return (
+                            <div key={attachment.id} className="relative rounded-lg border overflow-hidden">
+                              <img 
+                                src={attachment.filePath} 
+                                alt={attachment.fileName} 
+                                className="w-full h-40 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                onClick={() => window.open(attachment.filePath, '_blank')}
+                              />
+                              <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-2 truncate">
+                                {attachment.fileName}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ) : null
+                })()}
+                
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium">العقار</label>
+                    <label className="text-sm font-medium">{t('maintenance.property')}</label>
                     <p className="mt-1 text-sm">{selectedRequest.property.name}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium">الوحدة</label>
+                    <label className="text-sm font-medium">{t('maintenance.unit')}</label>
                     <p className="mt-1 text-sm">{selectedRequest.unit.unitNumber}</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium">النوع</label>
-                    <p className="mt-1 text-sm">{selectedRequest.type.name}</p>
+                    <label className="text-sm font-medium">{t('maintenance.type')}</label>
+                    <p className="mt-1 text-sm">{translateMaintenanceType(selectedRequest.type.name, language)}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium">الأولوية</label>
+                    <label className="text-sm font-medium">{t('maintenance.priority')}</label>
                     <p className="mt-1 text-sm">{getPriorityText(selectedRequest.priority)}</p>
                   </div>
                 </div>
                 
+                {/* Display requested date and time if available */}
+                {((selectedRequest as any).requestedDate || (selectedRequest as any).requestedTime) && (
+                  <div className="rounded-lg bg-blue-50 border border-blue-200 p-4">
+                    <p className="text-sm font-semibold text-blue-900 mb-2">
+                      {isRTL ? '📅 موعد مطلوب' : '📅 Requested Appointment'}
+                    </p>
+                    <div className="grid grid-cols-2 gap-4">
+                      {(selectedRequest as any).requestedDate && (
+                        <div>
+                          <label className="text-xs font-medium text-blue-700">{t('maintenance.requestedDate')}</label>
+                          <p className="mt-1 text-sm text-blue-900">
+                            {new Date((selectedRequest as any).requestedDate).toLocaleDateString(isRTL ? 'ar-SA' : 'en-US')}
+                          </p>
+                        </div>
+                      )}
+                      {(selectedRequest as any).requestedTime && (
+                        <div>
+                          <label className="text-xs font-medium text-blue-700">{t('maintenance.requestedTime')}</label>
+                          <p className="mt-1 text-sm text-blue-900">
+                            {formatTime12Hour((selectedRequest as any).requestedTime, isRTL)}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
                 {(selectedRequest as any).technicianName && (
                   <div className="rounded-lg bg-good/10 border border-good/20 p-4">
-                    <p className="text-sm font-semibold text-good mb-2">✅ تم إتمام البلاغ بواسطة الفني</p>
+                    <p className="text-sm font-semibold text-good mb-2">✅ {t('maintenance.completedByTechnician')}</p>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="text-xs font-medium text-muted-foreground">اسم الفني</label>
+                        <label className="text-xs font-medium text-muted-foreground">{t('maintenance.technicianName')}</label>
                         <p className="mt-1 text-sm">{(selectedRequest as any).technicianName}</p>
                       </div>
                       <div>
-                        <label className="text-xs font-medium text-muted-foreground">رقم الجوال</label>
+                        <label className="text-xs font-medium text-muted-foreground">{t('maintenance.technicianPhone')}</label>
                         <p className="mt-1 text-sm">{(selectedRequest as any).technicianPhone}</p>
                       </div>
                     </div>
                     {(selectedRequest as any).completionImage && (
                       <div className="mt-3">
-                        <label className="text-xs font-medium text-muted-foreground">صورة إثبات التنفيذ</label>
+                        <label className="text-xs font-medium text-muted-foreground">{t('maintenance.completionImage')}</label>
                         <img 
                           src={(selectedRequest as any).completionImage} 
                           alt="Completion" 
@@ -402,29 +555,78 @@ export default function MaintenanceClient({
                 )}
                 
                 <div>
-                  <label className="text-sm font-medium">الحالة</label>
+                  <label className="text-sm font-medium">{t('maintenance.status')}</label>
                   <select
                     value={newStatus}
                     onChange={(e) => setNewStatus(e.target.value)}
                     className="w-full px-3 py-2 border rounded-md mt-1"
                   >
-                    {statuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    {statuses.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {translateStatus(s.name, language)}
+                      </option>
+                    ))}
                   </select>
                 </div>
-                <div>
-                  <label className="text-sm font-medium">المسؤول</label>
-                  <select
-                    value={newAssignee}
-                    onChange={(e) => setNewAssignee(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-md mt-1"
+                
+                {/* Technician fields - Show when status is "completed" */}
+                {(() => {
+                  const selectedStatusObj = statuses.find(s => s.id === newStatus)
+                  const isCompletedStatus = selectedStatusObj?.isCompleted || false
+                  
+                  return isCompletedStatus ? (
+                    <div className="rounded-lg bg-amber-50 border-2 border-amber-300 p-4 space-y-4">
+                      <div className="flex items-center gap-2 text-amber-900">
+                        <span className="text-lg">🔧</span>
+                        <p className="text-sm font-semibold">
+                          {isRTL ? 'بيانات الفني (مطلوبة لإتمام البلاغ)' : 'Technician Information (Required for Completion)'}
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <label className="text-sm font-medium text-amber-900">
+                          {isRTL ? 'اسم الفني' : 'Technician Name'} <span className="text-red-600">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={technicianName}
+                          onChange={(e) => setTechnicianName(e.target.value)}
+                          placeholder={isRTL ? 'أدخل اسم الفني الذي نفذ الصيانة' : 'Enter technician name'}
+                          className="w-full px-3 py-2 border-2 border-amber-300 rounded-md mt-1 focus:border-amber-500 focus:outline-none"
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="text-sm font-medium text-amber-900">
+                          {isRTL ? 'رقم هاتف الفني' : 'Technician Phone'} <span className="text-muted-foreground text-xs">({isRTL ? 'اختياري' : 'Optional'})</span>
+                        </label>
+                        <input
+                          type="tel"
+                          value={technicianPhone}
+                          onChange={(e) => setTechnicianPhone(e.target.value)}
+                          placeholder={isRTL ? 'أدخل رقم هاتف الفني (اختياري)' : 'Enter technician phone (optional)'}
+                          className="w-full px-3 py-2 border-2 border-amber-300 rounded-md mt-1 focus:border-amber-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  ) : null
+                })()}
+                
+                {/* Work Order Button */}
+                <div className="pt-4 border-t">
+                  <button
+                    onClick={() => window.open(`/dashboard/maintenance/work-order/${selectedRequest.id}`, '_blank')}
+                    className="w-full flex items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-amber-700 transition-colors"
                   >
-                    <option value="">غير محدد</option>
-                    {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                  </select>
+                    <FileText className="h-4 w-4" />
+                    {language === 'ar' ? 'إعداد أمر عمل للفني' : 'Prepare Technician Work Order'}
+                  </button>
                 </div>
+
                 <div className="flex gap-2 pt-4">
-                  <Button onClick={handleUpdateRequest} className="flex-1">تحديث</Button>
-                  <Button variant="outline" className="flex-1" onClick={() => setShowDetailDialog(false)}>إلغاء</Button>
+                  <Button onClick={handleUpdateRequest} className="flex-1">{t('maintenance.update')}</Button>
+                  <Button variant="outline" className="flex-1" onClick={() => setShowDetailDialog(false)}>{t('common.cancel')}</Button>
                 </div>
               </div>
             </CardContent>
@@ -437,27 +639,27 @@ export default function MaintenanceClient({
           <Card className="w-full max-w-md">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-destructive">تأكيد الحذف</h3>
+                <h3 className="text-lg font-bold text-destructive">{t('maintenance.deleteRequest')}</h3>
                 <Button variant="ghost" size="sm" onClick={() => setShowDeleteDialog(false)}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>
               <p className="text-sm text-muted-foreground mb-4">
-                هل أنت متأكد من حذف طلب الصيانة <strong>{deletingRequest.requestNumber}</strong>؟
+                {t('maintenance.deleteConfirm')} <strong>{deletingRequest.requestNumber}</strong>؟
               </p>
               <div className="bg-muted/50 border rounded-md p-3 mb-4">
                 <p className="text-xs text-muted-foreground">
-                  العقار: {deletingRequest.property.name}<br/>
-                  الوحدة: {deletingRequest.unit.unitNumber}<br/>
-                  المشكلة: {deletingRequest.issueDescription}
+                  {t('maintenance.property')}: {deletingRequest.property.name}<br/>
+                  {t('maintenance.unit')}: {deletingRequest.unit.unitNumber}<br/>
+                  {t('maintenance.issue')}: {deletingRequest.issueDescription}
                 </p>
               </div>
               <div className="flex gap-2">
                 <Button variant="destructive" className="flex-1" onClick={confirmDelete}>
-                  نعم، احذف
+                  {t('common.yes')}, {t('common.delete')}
                 </Button>
                 <Button variant="outline" className="flex-1" onClick={() => setShowDeleteDialog(false)}>
-                  إلغاء
+                  {t('common.cancel')}
                 </Button>
               </div>
             </CardContent>

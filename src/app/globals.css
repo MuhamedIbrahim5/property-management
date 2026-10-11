@@ -53,15 +53,33 @@
   }
   body {
     @apply bg-background text-foreground font-arabic;
-    direction: rtl;
-  }
-  html {
-    direction: rtl;
   }
 }
 
 @layer utilities {
   .font-arabic {
     font-family: 'IBM Plex Sans Arabic', sans-serif;
+  }
+}
+
+/* RTL/LTR Support - Clean and Simple */
+[dir="rtl"] {
+  direction: rtl;
+}
+
+[dir="ltr"] {
+  direction: ltr;
+}
+
+/* Login Page Gradient Animation */
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
   }
 }

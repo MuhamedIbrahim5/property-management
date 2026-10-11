@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
 
     // 2. Parse request body
     const body = await request.json()
-    const { trackingCode, token, technicianName, technicianPhone, completionImage } = body
+    const { trackingCode, token, technicianName, technicianPhone, completionImage, statusId } = body
 
     // 3. Validate required fields
     if (!trackingCode || !token || !technicianName || !technicianPhone) {
@@ -115,16 +115,32 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 10. Find completed status
-    const completedStatus = await prisma.maintenanceStatus.findFirst({
-      where: { isCompleted: true }
-    })
+    // 10. Validate and get status
+    let targetStatus
+    if (statusId) {
+      // If statusId provided, validate it exists
+      targetStatus = await prisma.maintenanceStatus.findUnique({
+        where: { id: statusId, isActive: true }
+      })
+      
+      if (!targetStatus) {
+        return NextResponse.json(
+          { error: 'Invalid status selected' },
+          { status: 400 }
+        )
+      }
+    } else {
+      // Default to completed status if not provided
+      targetStatus = await prisma.maintenanceStatus.findFirst({
+        where: { isCompleted: true }
+      })
 
-    if (!completedStatus) {
-      return NextResponse.json(
-        { error: 'No completed status found in system configuration' },
-        { status: 500 }
-      )
+      if (!targetStatus) {
+        return NextResponse.json(
+          { error: 'No completed status found in system configuration' },
+          { status: 500 }
+        )
+      }
     }
 
     // 11. Atomic update with conditions (prevents race conditions)
@@ -139,10 +155,10 @@ export async function POST(request: NextRequest) {
         technicianName: technicianName.trim(),
         technicianPhone: technicianPhone.trim(),
         completionImage: completionImage || null,
-        completedAt: new Date(),
+        completedAt: targetStatus.isCompleted ? new Date() : maintenanceRequest.completedAt,
         completedBy: 'technician',
         completionTokenUsed: true,
-        statusId: completedStatus.id
+        statusId: targetStatus.id
       }
     })
 

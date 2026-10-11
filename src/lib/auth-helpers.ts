@@ -9,6 +9,13 @@ import { NextResponse } from 'next/server'
 export async function requireAdminAuth() {
   const session = await getServerSession(authOptions)
   
+  console.log('requireAdminAuth - Session:', {
+    hasSession: !!session,
+    hasUser: !!session?.user,
+    userId: session?.user?.id,
+    userRole: session?.user?.role
+  })
+  
   // Check if user is authenticated
   if (!session?.user?.id) {
     return {
@@ -23,6 +30,7 @@ export async function requireAdminAuth() {
   // Check if user has admin/manager role
   const allowedRoles = ['admin', 'manager']
   if (!allowedRoles.includes(session.user.role)) {
+    console.log('requireAdminAuth - Role not allowed:', session.user.role)
     return {
       authorized: false,
       response: NextResponse.json(

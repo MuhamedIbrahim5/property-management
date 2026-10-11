@@ -1,10 +1,12 @@
 import type { Metadata } from 'next'
 import AuthSessionProvider from '@/components/providers/SessionProvider'
+import { LanguageProvider } from '@/contexts/LanguageContext'
+import { LanguageWrapper } from '@/components/providers/LanguageWrapper'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'نظام إدارة الأملاك والصيانة',
-  description: 'نظام متكامل لإدارة العقارات والوحدات وبلاغات الصيانة',
+  title: 'نظام إدارة الأملاك والصيانة | Property Management System',
+  description: 'نظام متكامل لإدارة العقارات والوحدات وبلاغات الصيانة | Complete system for property, unit and maintenance management',
   icons: {
     icon: [
       { url: '/favicon.svg', type: 'image/svg+xml' },
@@ -23,9 +25,13 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="ar" dir="rtl">
+    <html suppressHydrationWarning>
       <body className="font-arabic antialiased">
-        <AuthSessionProvider>{children}</AuthSessionProvider>
+        <LanguageProvider>
+          <LanguageWrapper>
+            <AuthSessionProvider>{children}</AuthSessionProvider>
+          </LanguageWrapper>
+        </LanguageProvider>
       </body>
     </html>
   )

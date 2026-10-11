@@ -1,5 +1,8 @@
+'use client'
+
 import { Card, CardContent } from '@/components/ui/card'
 import { LucideIcon } from 'lucide-react'
+import { useTranslation } from '@/hooks/useTranslation'
 
 interface KPICardProps {
   title: string
@@ -13,6 +16,8 @@ interface KPICardProps {
 }
 
 export default function KPICard({ title, value, icon: Icon, subtitle, trend }: KPICardProps) {
+  const { t } = useTranslation()
+  
   return (
     <Card>
       <CardContent className="p-6">
@@ -32,7 +37,9 @@ export default function KPICard({ title, value, icon: Icon, subtitle, trend }: K
                 >
                   {trend.isPositive ? '↑' : '↓'} {Math.abs(trend.value)}%
                 </span>
-                <span className="text-xs text-muted-foreground">من الشهر السابق</span>
+                <span className="text-xs text-muted-foreground">
+                  {t('dashboard.fromLastMonth')}
+                </span>
               </div>
             )}
           </div>

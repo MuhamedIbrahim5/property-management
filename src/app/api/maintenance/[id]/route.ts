@@ -17,6 +17,22 @@ export async function PUT(
       completedBy 
     } = body
 
+    // Validate: If status is being set to "completed", technician name is required
+    if (statusId) {
+      const newStatus = await prisma.maintenanceStatus.findUnique({
+        where: { id: statusId }
+      })
+      
+      if (newStatus?.isCompleted) {
+        if (!technicianName || technicianName.trim() === '') {
+          return NextResponse.json(
+            { error: 'Technician name is required when marking request as completed' },
+            { status: 400 }
+          )
+        }
+      }
+    }
+
     const updateData: any = {}
     
     if (statusId !== undefined) updateData.statusId = statusId

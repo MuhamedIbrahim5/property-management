@@ -103,6 +103,8 @@ model MaintenanceRequest {
   requesterName  String
   requesterPhone String
   isPublicRequest Boolean @default(false)
+  requestedDate  DateTime? // Requested appointment date
+  requestedTime  String?   // Requested appointment time (HH:MM format)
   
   rating         Int?
   notes          String?

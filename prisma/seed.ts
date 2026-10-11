@@ -206,6 +206,11 @@ async function main() {
       { key: 'company_name', value: 'شركة إدارة الأملاك' },
       { key: 'whatsapp_number', value: '966501234567' },
       { key: 'whatsapp_enabled', value: 'true' },
+      { key: 'phone_number', value: '0114039223' },
+      { key: 'phone_number_2', value: '0114012257' },
+      { key: 'ext_numbers', value: '121، 125، 102، 201' },
+      { key: 'customer_service', value: '110' },
+      { key: 'service_name', value: 'التشغيل والصيانة' },
     ],
   })
 
