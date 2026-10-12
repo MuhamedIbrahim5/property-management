@@ -51,7 +51,8 @@ export default function CompleteMaintenancePage() {
         }
         const data = await res.json()
         
-        if (data.status.isCompleted) {
+        // Match API logic: check if completedAt exists OR status is completed
+        if (data.completedAt || data.status.isCompleted) {
           setError(t('completion.alreadyCompleted'))
         }
         
