@@ -83,7 +83,8 @@ export default function CompleteMaintenancePage() {
     }
 
     fetchRequest()
-  }, [trackingCode, token, t, success])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trackingCode, token, t])
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
