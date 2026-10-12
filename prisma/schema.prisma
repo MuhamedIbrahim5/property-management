@@ -115,6 +115,7 @@ model MaintenanceRequest {
   
   // Technician completion fields - SECURITY ENHANCED
   completionToken String?   @unique // Hashed completion token (SHA-256)
+  completionTokenPlain String? // AES-encrypted plain token for QR code generation
   completionTokenCreatedAt DateTime? // Token creation date for expiry check
   completionTokenUsed Boolean @default(false) // One-time use flag
   technicianName   String?

@@ -94,6 +94,76 @@ export function generateCompletionToken(): { token: string; hash: string } {
 }
 
 /**
+ * Encrypt token for storage (AES-256-GCM)
+ */
+export function encryptToken(token: string): string {
+  const crypto = require('crypto')
+  const secret = process.env.NEXTAUTH_SECRET
+  
+  if (!secret) {
+    throw new Error('NEXTAUTH_SECRET is not configured - encryption impossible')
+  }
+  
+  // Create key from secret (32 bytes for AES-256)
+  const key = crypto.createHash('sha256').update(secret).digest()
+  
+  // Generate IV
+  const iv = crypto.randomBytes(16)
+  
+  // Create cipher
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv)
+  
+  // Encrypt
+  let encrypted = cipher.update(token, 'utf8', 'hex')
+  encrypted += cipher.final('hex')
+  
+  // Get auth tag
+  const authTag = cipher.getAuthTag()
+  
+  // Return IV + encrypted + authTag (hex format)
+  return iv.toString('hex') + ':' + encrypted + ':' + authTag.toString('hex')
+}
+
+/**
+ * Decrypt token from storage
+ */
+export function decryptToken(encryptedToken: string): string | null {
+  try {
+    const crypto = require('crypto')
+    const secret = process.env.NEXTAUTH_SECRET
+    
+    if (!secret) {
+      console.error('NEXTAUTH_SECRET missing - cannot decrypt token')
+      return null
+    }
+    
+    // Create key from secret
+    const key = crypto.createHash('sha256').update(secret).digest()
+    
+    // Parse encrypted data
+    const parts = encryptedToken.split(':')
+    if (parts.length !== 3) return null
+    
+    const iv = Buffer.from(parts[0], 'hex')
+    const encrypted = parts[1]
+    const authTag = Buffer.from(parts[2], 'hex')
+    
+    // Create decipher
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv)
+    decipher.setAuthTag(authTag)
+    
+    // Decrypt
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8')
+    decrypted += decipher.final('utf8')
+    
+    return decrypted
+  } catch (error) {
+    console.error('Token decryption error:', error)
+    return null
+  }
+}
+
+/**
  * Hash a completion token for comparison
  */
 export function hashCompletionToken(token: string): string {

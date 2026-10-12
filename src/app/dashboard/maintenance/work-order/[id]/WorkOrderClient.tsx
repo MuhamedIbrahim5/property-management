@@ -21,6 +21,7 @@ interface Request {
   technicianPhone: string | null
   notes: string | null
   completionToken: string | null
+  completionTokenPlain: string | null
   property: { name: string; neighborhood: string }
   unit: { unitNumber: string }
   type: { name: string }
@@ -56,23 +57,38 @@ export default function WorkOrderClient({ request, companyPhone, companyName }: 
   }, [])
 
   useEffect(() => {
-    if (mounted) {
-      const completionUrl = buildAppUrl(`/complete/${request.trackingCode}`)
-      
-      import('qrcode').then((QRCodeLib) => {
-        QRCodeLib.default.toDataURL(completionUrl, {
-          width: 400,
-          margin: 1,
-          color: {
-            dark: '#1e3a5f',
-            light: '#ffffff',
-          },
-        }).then((url) => {
-          setQrCodeUrl(url)
+    if (mounted && request.completionTokenPlain) {
+      // Decrypt token from database
+      fetch('/api/maintenance/decrypt-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          encryptedToken: request.completionTokenPlain,
+          requestId: request.id 
         })
       })
+      .then(res => res.json())
+      .then(data => {
+        if (data.token) {
+          const completionUrl = buildAppUrl(`/complete/${request.trackingCode}?token=${data.token}`)
+          
+          import('qrcode').then((QRCodeLib) => {
+            QRCodeLib.default.toDataURL(completionUrl, {
+              width: 400,
+              margin: 1,
+              color: {
+                dark: '#1e3a5f',
+                light: '#ffffff',
+              },
+            }).then((url) => {
+              setQrCodeUrl(url)
+            })
+          })
+        }
+      })
+      .catch(err => console.error('Error decrypting token:', err))
     }
-  }, [mounted, request.trackingCode])
+  }, [mounted, request.id, request.trackingCode, request.completionTokenPlain])
 
   const handlePrint = () => {
     window.print()
@@ -612,9 +628,17 @@ export default function WorkOrderClient({ request, companyPhone, companyName }: 
                       <h3 className="text-sm font-bold text-[#92400e] mb-2.5">
                         {isRTL ? 'إتمام البلاغ' : 'Complete Request'}
                       </h3>
-                      {qrCodeUrl && (
+                      {qrCodeUrl ? (
                         <div className="bg-white p-2.5 rounded-lg mb-2.5 border border-[#f59e0b]">
                           <img src={qrCodeUrl} alt="QR" className="w-full h-auto" style={{ maxWidth: '140px', margin: '0 auto' }} />
+                        </div>
+                      ) : request.completionTokenPlain ? (
+                        <div className="bg-white p-2.5 rounded-lg mb-2.5 border border-amber-300 text-xs text-amber-700">
+                          {isRTL ? '⏳ جاري تحميل QR Code...' : '⏳ Loading QR Code...'}
+                        </div>
+                      ) : (
+                        <div className="bg-white p-2.5 rounded-lg mb-2.5 border border-gray-300 text-xs text-gray-600">
+                          {isRTL ? '⚠️ QR Code غير متاح للبلاغات القديمة' : '⚠️ QR Code not available for old requests'}
                         </div>
                       )}
                       <p className="text-xs text-[#92400e] font-semibold mb-2.5 leading-relaxed">

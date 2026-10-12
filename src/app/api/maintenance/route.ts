@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireAdminAuth, generateCompletionToken } from '@/lib/auth-helpers'
+import { requireAdminAuth, generateCompletionToken, encryptToken } from '@/lib/auth-helpers'
 import { buildAppUrl } from '@/lib/url'
 import { validateImageContent } from '@/lib/image-validation'
 
@@ -143,6 +143,7 @@ export async function POST(request: Request) {
 
     // Generate secure completion token
     const { token: completionToken, hash: completionTokenHash } = generateCompletionToken()
+    const completionTokenPlain = encryptToken(completionToken)
 
     // Parse requested date if provided
     let parsedDate: Date | null = null
@@ -174,6 +175,7 @@ export async function POST(request: Request) {
         requestedDate: parsedDate,
         requestedTime: requestedTime || null,
         completionToken: completionTokenHash,
+        completionTokenPlain: completionTokenPlain,
         completionTokenCreatedAt: new Date(),
         completionTokenUsed: false,
       },
