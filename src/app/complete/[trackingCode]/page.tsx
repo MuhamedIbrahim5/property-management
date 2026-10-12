@@ -32,10 +32,11 @@ export default function CompleteMaintenancePage() {
   const [selectedStatusId, setSelectedStatusId] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState('')
+  const [hasInitialized, setHasInitialized] = useState(false)
 
   useEffect(() => {
-    // Don't fetch if already successfully completed in this session
-    if (success) {
+    // Only run once on mount, never again
+    if (hasInitialized) {
       return
     }
 
@@ -79,12 +80,12 @@ export default function CompleteMaintenancePage() {
         setError(t('completion.loadError'))
       } finally {
         setLoading(false)
+        setHasInitialized(true)
       }
     }
 
     fetchRequest()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trackingCode, token, t])
+  }, []) // Empty dependencies - run only once
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
