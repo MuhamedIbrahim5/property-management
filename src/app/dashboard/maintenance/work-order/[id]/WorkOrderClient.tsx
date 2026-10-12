@@ -39,11 +39,12 @@ interface Request {
 
 interface WorkOrderClientProps {
   request: Request
+  completionToken: string | null
   companyPhone: string
   companyName: string
 }
 
-export default function WorkOrderClient({ request, companyPhone, companyName }: WorkOrderClientProps) {
+export default function WorkOrderClient({ request, completionToken, companyPhone, companyName }: WorkOrderClientProps) {
   const { t } = useTranslation()
   const { language, isRTL } = useLanguage()
   const [qrCodeUrl, setQrCodeUrl] = useState('')
@@ -57,38 +58,24 @@ export default function WorkOrderClient({ request, companyPhone, companyName }: 
   }, [])
 
   useEffect(() => {
-    if (mounted && request.completionTokenPlain) {
-      // Decrypt token from database
-      fetch('/api/maintenance/decrypt-token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          encryptedToken: request.completionTokenPlain,
-          requestId: request.id 
+    if (mounted && completionToken) {
+      // Token already decrypted on server-side, build completion URL directly
+      const completionUrl = buildAppUrl(`/complete/${request.trackingCode}?token=${completionToken}`)
+      
+      import('qrcode').then((QRCodeLib) => {
+        QRCodeLib.default.toDataURL(completionUrl, {
+          width: 400,
+          margin: 1,
+          color: {
+            dark: '#1e3a5f',
+            light: '#ffffff',
+          },
+        }).then((url) => {
+          setQrCodeUrl(url)
         })
       })
-      .then(res => res.json())
-      .then(data => {
-        if (data.token) {
-          const completionUrl = buildAppUrl(`/complete/${request.trackingCode}?token=${data.token}`)
-          
-          import('qrcode').then((QRCodeLib) => {
-            QRCodeLib.default.toDataURL(completionUrl, {
-              width: 400,
-              margin: 1,
-              color: {
-                dark: '#1e3a5f',
-                light: '#ffffff',
-              },
-            }).then((url) => {
-              setQrCodeUrl(url)
-            })
-          })
-        }
-      })
-      .catch(err => console.error('Error decrypting token:', err))
     }
-  }, [mounted, request.id, request.trackingCode, request.completionTokenPlain])
+  }, [mounted, request.trackingCode, completionToken])
 
   const handlePrint = () => {
     window.print()
@@ -632,7 +619,7 @@ export default function WorkOrderClient({ request, companyPhone, companyName }: 
                         <div className="bg-white p-2.5 rounded-lg mb-2.5 border border-[#f59e0b]">
                           <img src={qrCodeUrl} alt="QR" className="w-full h-auto" style={{ maxWidth: '140px', margin: '0 auto' }} />
                         </div>
-                      ) : request.completionTokenPlain ? (
+                      ) : completionToken ? (
                         <div className="bg-white p-2.5 rounded-lg mb-2.5 border border-amber-300 text-xs text-amber-700">
                           {isRTL ? '⏳ جاري تحميل QR Code...' : '⏳ Loading QR Code...'}
                         </div>

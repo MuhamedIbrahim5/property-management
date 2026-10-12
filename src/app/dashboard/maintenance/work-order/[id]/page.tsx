@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { redirect, notFound } from 'next/navigation'
+import { decryptToken } from '@/lib/auth-helpers'
 import WorkOrderClient from './WorkOrderClient'
 
 export default async function WorkOrderPage({ params }: { params: { id: string } }) {
@@ -43,6 +44,12 @@ export default async function WorkOrderPage({ params }: { params: { id: string }
     notFound()
   }
 
+  // Decrypt completion token on server-side for QR code generation
+  let decryptedToken: string | null = null
+  if (request.completionTokenPlain) {
+    decryptedToken = decryptToken(request.completionTokenPlain)
+  }
+
   // Get company settings
   const companyPhone = await prisma.setting.findUnique({
     where: { key: 'company_phone' },
@@ -55,6 +62,7 @@ export default async function WorkOrderPage({ params }: { params: { id: string }
   return (
     <WorkOrderClient
       request={request}
+      completionToken={decryptedToken}
       companyPhone={companyPhone?.value || ''}
       companyName={companyName?.value || ''}
     />
