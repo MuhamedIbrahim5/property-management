@@ -19,6 +19,11 @@ model User {
   updatedAt DateTime @updatedAt
   lastLogin DateTime?
 
+  // Password Reset Fields
+  resetToken        String?   @unique
+  resetTokenExpiry  DateTime?
+  resetTokenUsed    Boolean   @default(false)
+
   assignedRequests MaintenanceRequest[] @relation("AssignedTo")
   activities       ActivityHistory[]
 }

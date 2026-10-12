@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Building2, LogIn, AlertCircle, Mail, Lock, Eye, EyeOff } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -17,7 +18,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [showForgotPasswordMessage, setShowForgotPasswordMessage] = useState(false)
 
   const isRTL = language === 'ar'
 
@@ -159,28 +159,13 @@ export default function LoginPage() {
 
               {/* Forgot Password Link */}
               <div className={`${isRTL ? 'text-right' : 'text-left'}`}>
-                <button
-                  type="button"
-                  onClick={() => setShowForgotPasswordMessage(true)}
+                <Link
+                  href="/forgot-password"
                   className="text-sm text-slate-600 hover:text-slate-800 hover:underline"
                 >
                   {t('auth.forgotPassword')}
-                </button>
+                </Link>
               </div>
-
-              {/* Forgot Password Message */}
-              {showForgotPasswordMessage && (
-                <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
-                  <p>{t('auth.forgotPasswordNotAvailable')}</p>
-                  <button
-                    type="button"
-                    onClick={() => setShowForgotPasswordMessage(false)}
-                    className="mt-2 text-xs text-blue-600 hover:text-blue-800 hover:underline"
-                  >
-                    {language === 'ar' ? 'إغلاق' : 'Close'}
-                  </button>
-                </div>
-              )}
 
               <Button 
                 type="submit" 
