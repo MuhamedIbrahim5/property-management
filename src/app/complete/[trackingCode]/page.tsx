@@ -141,6 +141,8 @@ export default function CompleteMaintenancePage() {
         throw new Error(data.error || t('completion.completionError'))
       }
 
+      // Clear any previous errors and set success
+      setError('')
       setSuccess(true)
     } catch (err: any) {
       alert(err.message || t('completion.completionError'))
