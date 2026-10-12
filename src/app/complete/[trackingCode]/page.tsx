@@ -34,6 +34,11 @@ export default function CompleteMaintenancePage() {
   const [imagePreview, setImagePreview] = useState('')
 
   useEffect(() => {
+    // Don't fetch if already successfully completed in this session
+    if (success) {
+      return
+    }
+
     const fetchRequest = async () => {
       if (!token) {
         setError(t('completion.invalidLink'))
@@ -78,7 +83,7 @@ export default function CompleteMaintenancePage() {
     }
 
     fetchRequest()
-  }, [trackingCode, token, t])
+  }, [trackingCode, token, t, success])
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
