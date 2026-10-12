@@ -61,8 +61,8 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Verify current password if changing email or password
-    if ((email && email !== user.email) || newPassword) {
+    // Verify current password if changing password
+    if (newPassword) {
       if (!currentPassword) {
         return NextResponse.json(
           { error: 'Current password is required' },

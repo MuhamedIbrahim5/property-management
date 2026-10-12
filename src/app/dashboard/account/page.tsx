@@ -61,10 +61,13 @@ export default function AccountPage() {
         if (data.email !== session?.user?.email) {
           await update()
         }
+        // Refresh data from server to ensure consistency
+        await fetchUserData()
       } else {
         setMessage({ type: 'error', text: data.error || 'فشل تحديث الملف الشخصي' })
       }
     } catch (error) {
+      console.error('Profile update error:', error)
       setMessage({ type: 'error', text: 'حدث خطأ أثناء التحديث' })
     } finally {
       setLoading(false)
