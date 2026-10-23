@@ -43,12 +43,14 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json()
-    const { name, neighborhood, address, type } = body
+    const { name, nameEn, neighborhood, neighborhoodEn, address, type } = body
 
     const property = await prisma.property.create({
       data: {
         name,
+        nameEn: nameEn || null,
         neighborhood,
+        neighborhoodEn: neighborhoodEn || null,
         address,
         type: type || 'residential',
       },

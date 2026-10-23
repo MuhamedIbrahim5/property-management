@@ -1,14 +1,23 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Wrench, Plus, Search, Filter, X, Trash2, FileText } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useTranslation } from '@/hooks/useTranslation'
 import { useLanguage } from '@/contexts/LanguageContext'
-import { translateStatus, translateMaintenanceType } from '@/lib/data-translation'
+import { 
+  translateStatus, 
+  translateMaintenanceType,
+  getLocalizedPropertyNameWithId,
+  getLocalizedUnitNumberWithId,
+  getLocalizedIssueDescription,
+  getLocalizedRequesterName,
+  getLocalizedNotes
+} from '@/lib/data-translation'
 import { cn } from '@/lib/utils'
+import FieldVisitsSection from '@/components/FieldVisitsSection'
 
 type Request = {
   id: string
@@ -16,11 +25,13 @@ type Request = {
   issueDescription: string
   priority: string
   createdAt: Date
-  property: { name: string }
-  unit: { unitNumber: string }
+  property: { id: string; name: string; nameEn?: string | null; latitude?: number | null; longitude?: number | null }
+  unit: { id: string; unitNumber: string; unitNumberEn?: string | null }
   type: { name: string; id: string }
   status: { name: string; id: string }
   assignee: { id: string; name: string } | null
+  requesterName?: string | null
+  notes?: string | null
   attachments?: Array<{
     id: string
     fileName: string
@@ -28,6 +39,75 @@ type Request = {
     fileType: string
     createdAt: Date
   }>
+}
+
+// Helper component to display translated property name
+function PropertyName({ property, language }: { property: { id: string; name: string; nameEn?: string | null }; language: 'ar' | 'en' }) {
+  const [displayName, setDisplayName] = useState(property.name)
+  
+  useEffect(() => {
+    getLocalizedPropertyNameWithId(property.id, property.name, property.nameEn, language)
+      .then(setDisplayName)
+      .catch(() => setDisplayName(property.name))
+  }, [property, language])
+  
+  return <>{displayName}</>
+}
+
+// Helper component to display translated unit number
+function UnitNumber({ unit, language }: { unit: { id: string; unitNumber: string; unitNumberEn?: string | null }; language: 'ar' | 'en' }) {
+  const [displayName, setDisplayName] = useState(unit.unitNumber)
+  
+  useEffect(() => {
+    getLocalizedUnitNumberWithId(unit.id, unit.unitNumber, unit.unitNumberEn, language)
+      .then(setDisplayName)
+      .catch(() => setDisplayName(unit.unitNumber))
+  }, [unit, language])
+  
+  return <>{displayName}</>
+}
+
+// Helper component to display translated issue description
+function IssueDescription({ description, language }: { description: string; language: 'ar' | 'en' }) {
+  const [displayText, setDisplayText] = useState(description)
+  
+  useEffect(() => {
+    getLocalizedIssueDescription(description, language)
+      .then(setDisplayText)
+      .catch(() => setDisplayText(description))
+  }, [description, language])
+  
+  return <>{displayText}</>
+}
+
+// Helper component to display translated requester name
+function RequesterName({ name, language }: { name: string; language: 'ar' | 'en' }) {
+  const [displayText, setDisplayText] = useState(name)
+  
+  useEffect(() => {
+    if (name) {
+      getLocalizedRequesterName(name, language)
+        .then(setDisplayText)
+        .catch(() => setDisplayText(name))
+    }
+  }, [name, language])
+  
+  return <>{displayText}</>
+}
+
+// Helper component to display translated technician name
+function TechnicianName({ name, language }: { name: string; language: 'ar' | 'en' }) {
+  const [displayText, setDisplayText] = useState(name)
+  
+  useEffect(() => {
+    if (name) {
+      getLocalizedRequesterName(name, language)  // Reuse same function since it's also a person name
+        .then(setDisplayText)
+        .catch(() => setDisplayText(name))
+    }
+  }, [name, language])
+  
+  return <>{displayText}</>
 }
 
 export default function MaintenanceClient({
@@ -55,6 +135,21 @@ export default function MaintenanceClient({
   const [newStatus, setNewStatus] = useState('')
   const [technicianName, setTechnicianName] = useState('')
   const [technicianPhone, setTechnicianPhone] = useState('')
+  
+  // Field visit states
+  const [showFieldVisitDialog, setShowFieldVisitDialog] = useState(false)
+  const [visitNotes, setVisitNotes] = useState('')
+  const [visitLocation, setVisitLocation] = useState<{lat: number, lng: number} | null>(null)
+  const [locationError, setLocationError] = useState('')
+  const [isCapturingLocation, setIsCapturingLocation] = useState(false)
+  
+  // Attachments states
+  const [showAttachmentDialog, setShowAttachmentDialog] = useState(false)
+  const [attachmentCategory, setAttachmentCategory] = useState<'before' | 'after' | 'general'>('before')
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null)
+  const [attachmentPreview, setAttachmentPreview] = useState<string>('')
+  const [requestAttachments, setRequestAttachments] = useState<any[]>([])
+  const [fieldVisits, setFieldVisits] = useState<any[]>([])
 
   // Convert 24-hour time (HH:MM) to 12-hour format with AM/PM
   const formatTime12Hour = (time24: string, rtl: boolean): string => {
@@ -131,6 +226,10 @@ export default function MaintenanceClient({
     setNewStatus(req.status.id)
     setTechnicianName((req as any).technicianName || '')
     setTechnicianPhone((req as any).technicianPhone || '')
+    
+    // Load field visits and attachments
+    loadRequestDetails(req.id)
+    
     setShowDetailDialog(true)
   }
 
@@ -141,10 +240,33 @@ export default function MaintenanceClient({
     const newStatusObj = statuses.find(s => s.id === newStatus)
     const isCompletedStatus = newStatusObj?.isCompleted || false
     
-    // If status is completed, validate technician name
-    if (isCompletedStatus && !technicianName.trim()) {
-      alert(t('maintenance.technicianNameRequired') || (isRTL ? 'اسم الفني مطلوب' : 'Technician name is required'))
-      return
+    // If status is completed, validate requirements
+    if (isCompletedStatus) {
+      // Check technician name
+      if (!technicianName.trim()) {
+        alert(t('maintenance.technicianNameRequired') || (isRTL ? 'اسم الفني مطلوب' : 'Technician name is required'))
+        return
+      }
+      
+      // Check for completion requirements via API
+      try {
+        const validationRes = await fetch(`/api/maintenance/${selectedRequest.id}/validate-completion`)
+        if (validationRes.ok) {
+          const validation = await validationRes.json()
+          
+          if (!validation.canComplete) {
+            const errorMsg = isRTL
+              ? `لا يمكن إغلاق البلاغ:\n${validation.validation.errors.map((e: string) => `• ${e}`).join('\n')}`
+              : `Cannot complete request:\n${validation.validation.errors.map((e: string) => `• ${e}`).join('\n')}`
+            
+            alert(errorMsg)
+            return
+          }
+        }
+      } catch (error) {
+        console.error('Validation check failed:', error)
+        // Continue anyway if validation API fails
+      }
     }
     
     try {
@@ -164,7 +286,10 @@ export default function MaintenanceClient({
         body: JSON.stringify(updateData)
       })
       
-      if (!res.ok) throw new Error('Failed to update')
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Failed to update')
+      }
       
       const updated = await res.json()
       setRequests(reqs => reqs.map(r => r.id === updated.id ? {
@@ -176,9 +301,9 @@ export default function MaintenanceClient({
       
       setShowDetailDialog(false)
       alert(t('maintenance.updateSuccess'))
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating request:', error)
-      alert(t('maintenance.updateError'))
+      alert(error.message || t('maintenance.updateError'))
     }
   }
 
@@ -213,6 +338,152 @@ export default function MaintenanceClient({
     setSelectedType('')
     setSelectedPriority('')
     setSelectedTechnician('')
+  }
+
+  const captureLocation = () => {
+    setIsCapturingLocation(true)
+    setLocationError('')
+    
+    if (!navigator.geolocation) {
+      setLocationError(isRTL ? 'المتصفح لا يدعم تحديد الموقع' : 'Geolocation not supported')
+      setIsCapturingLocation(false)
+      return
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setVisitLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        })
+        setIsCapturingLocation(false)
+      },
+      (error) => {
+        setLocationError(
+          isRTL 
+            ? 'تعذر الحصول على الموقع. يرجى التحقق من الأذونات' 
+            : 'Failed to get location. Check permissions'
+        )
+        setIsCapturingLocation(false)
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    )
+  }
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      alert(isRTL ? 'يرجى اختيار ملف صورة فقط' : 'Please select an image file')
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert(isRTL ? 'حجم الصورة يجب أن يكون أقل من 5 ميجابايت' : 'Image size must be less than 5MB')
+      return
+    }
+
+    setAttachmentFile(file)
+    
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setAttachmentPreview(reader.result as string)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleUploadAttachment = async () => {
+    if (!attachmentFile || !selectedRequest) return
+
+    try {
+      const reader = new FileReader()
+      reader.onloadend = async () => {
+        const base64 = reader.result as string
+
+        const response = await fetch(`/api/maintenance/${selectedRequest.id}/attachments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            image: base64,
+            category: attachmentCategory,
+            fileName: attachmentFile.name
+          })
+        })
+
+        if (!response.ok) throw new Error('Upload failed')
+
+        const newAttachment = await response.json()
+        setRequestAttachments(prev => [...prev, newAttachment])
+        
+        // Reset
+        setShowAttachmentDialog(false)
+        setAttachmentFile(null)
+        setAttachmentPreview('')
+        
+        alert(isRTL ? 'تم رفع الصورة بنجاح' : 'Image uploaded successfully')
+      }
+      reader.readAsDataURL(attachmentFile)
+    } catch (error) {
+      console.error('Upload error:', error)
+      alert(isRTL ? 'فشل رفع الصورة' : 'Failed to upload image')
+    }
+  }
+
+  const handleCreateFieldVisit = async () => {
+    if (!selectedRequest || !visitNotes.trim()) {
+      alert(isRTL ? 'يرجى إدخال ملاحظات الزيارة' : 'Please enter visit notes')
+      return
+    }
+
+    try {
+      const response = await fetch('/api/maintenance/field-visits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requestId: selectedRequest.id,
+          notes: visitNotes,
+          latitude: visitLocation?.lat,
+          longitude: visitLocation?.lng
+        })
+      })
+
+      if (!response.ok) throw new Error('Failed to create visit')
+
+      const newVisit = await response.json()
+      setFieldVisits(prev => [...prev, newVisit])
+      
+      // Reset
+      setShowFieldVisitDialog(false)
+      setVisitNotes('')
+      setVisitLocation(null)
+      setLocationError('')
+      
+      alert(isRTL ? 'تم تسجيل الزيارة بنجاح' : 'Field visit recorded successfully')
+    } catch (error) {
+      console.error('Visit creation error:', error)
+      alert(isRTL ? 'فشل تسجيل الزيارة' : 'Failed to record visit')
+    }
+  }
+
+  const loadRequestDetails = async (requestId: string) => {
+    try {
+      // Load attachments
+      const attachRes = await fetch(`/api/maintenance/${requestId}/attachments`)
+      if (attachRes.ok) {
+        const attachments = await attachRes.json()
+        setRequestAttachments(attachments)
+      }
+
+      // Load field visits
+      const visitsRes = await fetch(`/api/maintenance/field-visits?requestId=${requestId}`)
+      if (visitsRes.ok) {
+        const visits = await visitsRes.json()
+        setFieldVisits(visits)
+      }
+    } catch (error) {
+      console.error('Error loading details:', error)
+    }
   }
 
   return (
@@ -371,12 +642,12 @@ export default function MaintenanceClient({
                         </td>
                         <td className="px-3 py-3">
                           <div>
-                            <p className="text-sm font-medium">{request.property.name}</p>
-                            <p className="text-xs text-muted-foreground">{request.unit.unitNumber}</p>
+                            <p className="text-sm font-medium"><PropertyName property={request.property} language={language} /></p>
+                            <p className="text-xs text-muted-foreground"><UnitNumber unit={request.unit} language={language} /></p>
                           </div>
                         </td>
                         <td className="px-3 py-3">
-                          <p className="text-sm line-clamp-2 max-w-xs">{request.issueDescription}</p>
+                          <p className="text-sm line-clamp-2 max-w-xs"><IssueDescription description={request.issueDescription} language={language} /></p>
                         </td>
                         <td className="px-3 py-3">
                           <Badge variant="outline" className="text-xs whitespace-nowrap">
@@ -384,9 +655,20 @@ export default function MaintenanceClient({
                           </Badge>
                         </td>
                         <td className="px-3 py-3">
-                          <Badge variant={getStatusVariant(request.status.name)} className="whitespace-nowrap">
-                            {translateStatus(request.status.name, language)}
-                          </Badge>
+                          <div className="flex flex-col gap-1">
+                            <Badge variant={getStatusVariant(request.status.name)} className="whitespace-nowrap">
+                              {translateStatus(request.status.name, language)}
+                            </Badge>
+                            {(() => {
+                              const daysSinceCreation = Math.floor((Date.now() - new Date(request.createdAt).getTime()) / (1000 * 60 * 60 * 24))
+                              const isDelayed = daysSinceCreation > 30 && !statuses.find(s => s.id === request.status.id)?.isCompleted
+                              return isDelayed ? (
+                                <Badge variant="destructive" className="text-xs whitespace-nowrap">
+                                  ⏰ {isRTL ? 'متأخر' : 'Delayed'} ({daysSinceCreation} {isRTL ? 'يوم' : 'days'})
+                                </Badge>
+                              ) : null
+                            })()}
+                          </div>
                         </td>
                         <td className="px-3 py-3">
                           <Badge variant={getPriorityVariant(request.priority)} className="whitespace-nowrap">
@@ -396,7 +678,9 @@ export default function MaintenanceClient({
                         <td className="px-3 py-3">
                           {(request as any).technicianName ? (
                             <div>
-                              <p className="text-sm font-medium">{(request as any).technicianName}</p>
+                              <p className="text-sm font-medium">
+                                <TechnicianName name={(request as any).technicianName} language={language} />
+                              </p>
                               <p className="text-xs text-muted-foreground">{(request as any).technicianPhone}</p>
                             </div>
                           ) : (
@@ -443,7 +727,7 @@ export default function MaintenanceClient({
               <div className="space-y-4">
                 <div>
                   <label className="text-sm font-medium">{t('maintenance.issueDescription')}</label>
-                  <p className="mt-1 text-sm text-muted-foreground">{selectedRequest.issueDescription}</p>
+                  <p className="mt-1 text-sm text-muted-foreground"><IssueDescription description={selectedRequest.issueDescription} language={language} /></p>
                 </div>
                 
                 {/* Display request attachments if any */}
@@ -483,11 +767,11 @@ export default function MaintenanceClient({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium">{t('maintenance.property')}</label>
-                    <p className="mt-1 text-sm">{selectedRequest.property.name}</p>
+                    <p className="mt-1 text-sm"><PropertyName property={selectedRequest.property} language={language} /></p>
                   </div>
                   <div>
                     <label className="text-sm font-medium">{t('maintenance.unit')}</label>
-                    <p className="mt-1 text-sm">{selectedRequest.unit.unitNumber}</p>
+                    <p className="mt-1 text-sm"><UnitNumber unit={selectedRequest.unit} language={language} /></p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -534,7 +818,9 @@ export default function MaintenanceClient({
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="text-xs font-medium text-muted-foreground">{t('maintenance.technicianName')}</label>
-                        <p className="mt-1 text-sm">{(selectedRequest as any).technicianName}</p>
+                        <p className="mt-1 text-sm">
+                          <TechnicianName name={(selectedRequest as any).technicianName} language={language} />
+                        </p>
                       </div>
                       <div>
                         <label className="text-xs font-medium text-muted-foreground">{t('maintenance.technicianPhone')}</label>
@@ -553,6 +839,71 @@ export default function MaintenanceClient({
                     )}
                   </div>
                 )}
+                
+                {/* Field Visits Section */}
+                <div className="border-t pt-4">
+                  <FieldVisitsSection 
+                    visits={fieldVisits.map(visit => ({
+                      id: visit.id,
+                      visitDate: visit.visitDate,
+                      latitude: visit.latitude,
+                      longitude: visit.longitude,
+                      accuracy: visit.accuracy,
+                      locationError: visit.locationError,
+                      distanceMeters: visit.distanceMeters,
+                      notes: visit.notes,
+                      attachments: visit.attachments || []
+                    }))}
+                    property={{
+                      latitude: selectedRequest.property.latitude || null,
+                      longitude: selectedRequest.property.longitude || null
+                    }}
+                  />
+                </div>
+                
+                {/* Attachments Section */}
+                <div className="border-t pt-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-semibold">{isRTL ? '📎 المرفقات' : '📎 Attachments'}</h4>
+                    <Button
+                      size="sm"
+                      onClick={() => setShowAttachmentDialog(true)}
+                      className="text-xs"
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      {isRTL ? 'رفع صورة' : 'Upload Image'}
+                    </Button>
+                  </div>
+                  
+                  {requestAttachments.length > 0 ? (
+                    <div className="grid grid-cols-3 gap-2">
+                      {requestAttachments.map((attachment) => (
+                        <div key={attachment.id} className="relative group">
+                          <img
+                            src={attachment.filePath}
+                            alt={attachment.fileName}
+                            className="w-full h-24 object-cover rounded-lg cursor-pointer hover:opacity-90"
+                            onClick={() => window.open(attachment.filePath, '_blank')}
+                          />
+                          <div className="absolute top-1 left-1">
+                            <span className={cn(
+                              "text-xs px-2 py-0.5 rounded",
+                              attachment.category === 'before' && "bg-red-500 text-white",
+                              attachment.category === 'after' && "bg-green-500 text-white",
+                              attachment.category === 'general' && "bg-blue-500 text-white"
+                            )}>
+                              {attachment.category === 'before' && (isRTL ? 'قبل' : 'Before')}
+                              {attachment.category === 'after' && (isRTL ? 'بعد' : 'After')}
+                              {attachment.category === 'general' && (isRTL ? 'عام' : 'General')}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">{isRTL ? 'لا توجد مرفقات' : 'No attachments'}</p>
+                  )}
+                </div>
                 
                 <div>
                   <label className="text-sm font-medium">{t('maintenance.status')}</label>
@@ -627,6 +978,152 @@ export default function MaintenanceClient({
                 <div className="flex gap-2 pt-4">
                   <Button onClick={handleUpdateRequest} className="flex-1">{t('maintenance.update')}</Button>
                   <Button variant="outline" className="flex-1" onClick={() => setShowDetailDialog(false)}>{t('common.cancel')}</Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Field Visit Dialog */}
+      {showFieldVisitDialog && selectedRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <Card className="w-full max-w-lg">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold">{isRTL ? 'تسجيل زيارة ميدانية' : 'Record Field Visit'}</h3>
+                <Button variant="ghost" size="sm" onClick={() => setShowFieldVisitDialog(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">
+                    {isRTL ? 'ملاحظات الزيارة' : 'Visit Notes'} <span className="text-red-600">*</span>
+                  </label>
+                  <textarea
+                    value={visitNotes}
+                    onChange={(e) => setVisitNotes(e.target.value)}
+                    placeholder={isRTL ? 'صف ما تم خلال الزيارة...' : 'Describe what happened during the visit...'}
+                    className="w-full px-3 py-2 border rounded-md mt-1 min-h-[100px]"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium">{isRTL ? 'الموقع الجغرافي' : 'GPS Location'}</label>
+                  <div className="mt-2 space-y-2">
+                    {visitLocation ? (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                        <p className="text-sm text-green-800 font-medium">✅ {isRTL ? 'تم تحديد الموقع' : 'Location Captured'}</p>
+                        <p className="text-xs text-green-600 mt-1">
+                          📍 {visitLocation.lat.toFixed(6)}, {visitLocation.lng.toFixed(6)}
+                        </p>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="mt-2 text-xs"
+                          onClick={() => setVisitLocation(null)}
+                        >
+                          {isRTL ? 'إعادة التحديد' : 'Reset Location'}
+                        </Button>
+                      </div>
+                    ) : (
+                      <div>
+                        <Button
+                          onClick={captureLocation}
+                          disabled={isCapturingLocation}
+                          className="w-full"
+                        >
+                          {isCapturingLocation ? (isRTL ? 'جاري التحديد...' : 'Getting Location...') : (isRTL ? '📍 تحديد الموقع الحالي' : '📍 Capture Current Location')}
+                        </Button>
+                        {locationError && (
+                          <p className="text-xs text-red-600 mt-1">{locationError}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {isRTL ? 'يمكنك تخطي تحديد الموقع إذا تعذر الوصول إليه' : 'You can skip if location is not accessible'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="flex gap-2 pt-2">
+                  <Button onClick={handleCreateFieldVisit} className="flex-1" disabled={!visitNotes.trim()}>
+                    {isRTL ? 'حفظ الزيارة' : 'Save Visit'}
+                  </Button>
+                  <Button variant="outline" className="flex-1" onClick={() => setShowFieldVisitDialog(false)}>
+                    {isRTL ? 'إلغاء' : 'Cancel'}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Attachment Upload Dialog */}
+      {showAttachmentDialog && selectedRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <Card className="w-full max-w-lg">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold">{isRTL ? 'رفع صورة' : 'Upload Image'}</h3>
+                <Button variant="ghost" size="sm" onClick={() => setShowAttachmentDialog(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">{isRTL ? 'تصنيف الصورة' : 'Image Category'}</label>
+                  <select
+                    value={attachmentCategory}
+                    onChange={(e) => setAttachmentCategory(e.target.value as any)}
+                    className="w-full px-3 py-2 border rounded-md mt-1"
+                  >
+                    <option value="before">{isRTL ? 'قبل الإصلاح' : 'Before Repair'}</option>
+                    <option value="after">{isRTL ? 'بعد الإصلاح' : 'After Repair'}</option>
+                    <option value="general">{isRTL ? 'عامة' : 'General'}</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium">{isRTL ? 'اختر الصورة' : 'Select Image'}</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                    className="w-full px-3 py-2 border rounded-md mt-1"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {isRTL ? 'الحد الأقصى: 5 ميجابايت' : 'Max size: 5MB'}
+                  </p>
+                </div>
+                
+                {attachmentPreview && (
+                  <div>
+                    <label className="text-sm font-medium">{isRTL ? 'معاينة' : 'Preview'}</label>
+                    <img
+                      src={attachmentPreview}
+                      alt="Preview"
+                      className="w-full h-48 object-cover rounded-lg mt-2"
+                    />
+                  </div>
+                )}
+                
+                <div className="flex gap-2 pt-2">
+                  <Button onClick={handleUploadAttachment} className="flex-1" disabled={!attachmentFile}>
+                    {isRTL ? 'رفع الصورة' : 'Upload Image'}
+                  </Button>
+                  <Button variant="outline" className="flex-1" onClick={() => {
+                    setShowAttachmentDialog(false)
+                    setAttachmentFile(null)
+                    setAttachmentPreview('')
+                  }}>
+                    {isRTL ? 'إلغاء' : 'Cancel'}
+                  </Button>
                 </div>
               </div>
             </CardContent>

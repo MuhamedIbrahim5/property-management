@@ -1,6 +1,9 @@
 import { prisma } from '@/lib/prisma'
 import UnitsClient from './UnitsClient'
 
+// Force dynamic rendering - this page requires database access at request time
+export const dynamic = 'force-dynamic'
+
 export default async function UnitsPage() {
   const [units, properties] = await Promise.all([
     prisma.unit.findMany({

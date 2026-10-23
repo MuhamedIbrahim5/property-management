@@ -2,14 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { hashToken } from '@/lib/email'
 
+// Force dynamic rendering for this route since it uses search params
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/auth/reset-password/verify?token=xxx
  * Verify if a reset token is valid
  */
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const token = searchParams.get('token')
+    const token = request.nextUrl.searchParams.get('token')
 
     if (!token) {
       return NextResponse.json(

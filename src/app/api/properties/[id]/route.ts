@@ -14,13 +14,15 @@ export async function PUT(
 
   try {
     const body = await request.json()
-    const { name, neighborhood, address, type, status } = body
+    const { name, nameEn, neighborhood, neighborhoodEn, address, type, status } = body
 
     const property = await prisma.property.update({
       where: { id: params.id },
       data: {
         name,
+        nameEn: nameEn || null,
         neighborhood,
+        neighborhoodEn: neighborhoodEn || null,
         address,
         type,
         status,

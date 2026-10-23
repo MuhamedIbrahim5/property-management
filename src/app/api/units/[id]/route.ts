@@ -14,17 +14,28 @@ export async function PUT(
 
   try {
     const body = await request.json()
-    const { unitNumber, propertyId, type, status, tenantName, tenantPhone } = body
+    const { unitNumber, unitNumberEn, propertyId, type, status, tenantName, tenantPhone } = body
+
+    // SECURITY: Sanitize tenant name - remove HTML/XML tags
+    const sanitizedTenantName = tenantName 
+      ? tenantName.replace(/<[^>]*>/g, '').trim() 
+      : null
+
+    // SECURITY: Sanitize tenant phone - remove non-numeric characters except + and spaces
+    const sanitizedTenantPhone = tenantPhone
+      ? tenantPhone.replace(/[^0-9+\s-]/g, '').trim()
+      : null
 
     const unit = await prisma.unit.update({
       where: { id: params.id },
       data: {
         unitNumber,
+        unitNumberEn: unitNumberEn || null,
         propertyId,
         type,
         status,
-        tenantName,
-        tenantPhone,
+        tenantName: sanitizedTenantName,
+        tenantPhone: sanitizedTenantPhone,
       },
     })
 

@@ -47,6 +47,64 @@ export async function requireAdminAuth() {
 }
 
 /**
+ * Require technician or admin authentication for API routes
+ * Returns authorization result with user info or error response
+ */
+export async function requireTechnicianAuth() {
+  const session = await getServerSession(authOptions)
+  
+  console.log('requireTechnicianAuth - Session:', {
+    hasSession: !!session,
+    hasUser: !!session?.user,
+    userId: session?.user?.id,
+    userRole: session?.user?.role
+  })
+  
+  // Check if user is authenticated
+  if (!session?.user?.id) {
+    return {
+      authorized: false,
+      response: NextResponse.json(
+        { error: 'Authentication required' }, 
+        { status: 401 }
+      )
+    }
+  }
+  
+  // Check if user has technician, manager, or admin role
+  const allowedRoles = ['admin', 'manager', 'technician']
+  if (!allowedRoles.includes(session.user.role)) {
+    console.log('requireTechnicianAuth - Role not allowed:', session.user.role)
+    return {
+      authorized: false,
+      response: NextResponse.json(
+        { error: 'Insufficient permissions. Technician access required.' }, 
+        { status: 403 }
+      )
+    }
+  }
+  
+  return {
+    authorized: true,
+    user: session.user
+  }
+}
+
+/**
+ * Get current authenticated user (any role)
+ * Returns user info or null if not authenticated
+ */
+export async function getCurrentUser() {
+  const session = await getServerSession(authOptions)
+  
+  if (!session?.user?.id) {
+    return null
+  }
+  
+  return session.user
+}
+
+/**
  * Simple in-memory rate limiting (for basic protection)
  * Note: This resets on server restart and doesn't work across regions
  * For production, consider using Upstash Redis or similar

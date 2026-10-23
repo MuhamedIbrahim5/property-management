@@ -129,6 +129,19 @@ export async function POST(request: Request) {
       }
     }
 
+    // Get maintenance type to check autoUrgent
+    const maintenanceType = await prisma.maintenanceType.findUnique({
+      where: { id: typeId },
+      select: { autoUrgent: true }
+    })
+
+    // Auto-set priority to urgent if maintenance type has autoUrgent enabled
+    let finalPriority = priority || 'normal'
+    if (maintenanceType?.autoUrgent) {
+      finalPriority = 'urgent'
+      console.log('Auto-set priority to urgent based on maintenance type')
+    }
+
     // Get default status
     const defaultStatus = await prisma.maintenanceStatus.findFirst({
       where: { isDefault: true },
@@ -168,12 +181,13 @@ export async function POST(request: Request) {
         issueDescription,
         typeId,
         statusId: defaultStatus.id,
-        priority: priority || 'normal',
+        priority: finalPriority,
         requesterName,
         requesterPhone,
         isPublicRequest: isPublicRequest || false,
         requestedDate: parsedDate,
         requestedTime: requestedTime || null,
+        isDelayed: false, // Initial value, will be updated by background job
         completionToken: completionTokenHash,
         completionTokenPlain: completionTokenPlain,
         completionTokenCreatedAt: new Date(),

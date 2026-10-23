@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { DoorOpen, Building2, Plus, QrCode, X, Download, Trash2, Share2, Copy, MessageSquare, Printer } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -10,6 +10,7 @@ import QRCodeLib from 'qrcode'
 import { getAppUrl, buildAppUrl } from '@/lib/url'
 import { useTranslation } from '@/hooks/useTranslation'
 import { useLanguage } from '@/contexts/LanguageContext'
+import { getLocalizedUnitNumberWithId, getLocalizedPropertyNameWithId } from '@/lib/data-translation'
 import { useReactToPrint } from 'react-to-print'
 import { toPng } from 'html-to-image'
 import QRPoster from '@/components/QRPoster'
@@ -17,17 +18,61 @@ import QRPoster from '@/components/QRPoster'
 type Unit = {
   id: string
   unitNumber: string
+  unitNumberEn?: string | null
   status: string
   type: string
   tenantName: string | null
   tenantPhone: string | null
-  property: { id: string; name: string }
+  property: { id: string; name: string; nameEn?: string | null }
   _count: { maintenanceRequests: number }
 }
 
 type Property = {
   id: string
   name: string
+  nameEn?: string | null
+}
+
+// Helper component to display translated unit number
+function UnitNumber({ unit, language }: { unit: Unit; language: 'ar' | 'en' }) {
+  const [displayName, setDisplayName] = useState(unit.unitNumber)
+  
+  useEffect(() => {
+    getLocalizedUnitNumberWithId(unit.id, unit.unitNumber, unit.unitNumberEn, language)
+      .then(setDisplayName)
+      .catch(() => setDisplayName(unit.unitNumber))
+  }, [unit, language])
+  
+  return <>{displayName}</>
+}
+
+// Helper component to display translated property name
+function PropertyNameInUnit({ property, language }: { property: { id: string; name: string; nameEn?: string | null }; language: 'ar' | 'en' }) {
+  const [displayName, setDisplayName] = useState(property.name)
+  
+  useEffect(() => {
+    getLocalizedPropertyNameWithId(property.id, property.name, property.nameEn, language)
+      .then(setDisplayName)
+      .catch(() => setDisplayName(property.name))
+  }, [property, language])
+  
+  return <>{displayName}</>
+}
+
+// Helper component to display translated tenant name
+function TenantName({ name, language }: { name: string; language: 'ar' | 'en' }) {
+  const [displayName, setDisplayName] = useState(name)
+  
+  useEffect(() => {
+    // Import translation function
+    import('@/lib/data-translation').then(({ getLocalizedTenantName }) => {
+      getLocalizedTenantName(name, language)
+        .then(setDisplayName)
+        .catch(() => setDisplayName(name))
+    })
+  }, [name, language])
+  
+  return <>{displayName}</>
 }
 
 export default function UnitsClient({ initialUnits, properties }: { initialUnits: Unit[]; properties: Property[] }) {
@@ -324,21 +369,39 @@ export default function UnitsClient({ initialUnits, properties }: { initialUnits
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <h3 className="text-lg font-bold text-foreground">{unit.unitNumber}</h3>
+                        <h3 className="text-lg font-bold text-foreground">
+                          <UnitNumber unit={unit} language={language} />
+                        </h3>
                         <Badge variant={statusVariant(unit.status)}>{statusText(unit.status)}</Badge>
                       </div>
                       <div className="mt-2 flex items-center gap-1 text-sm text-muted-foreground">
                         <Building2 className="h-4 w-4" />
-                        <span>{unit.property.name}</span>
+                        <span><PropertyNameInUnit property={unit.property} language={language} /></span>
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground">{typeText(unit.type)}</p>
                     </div>
                   </div>
 
                   {unit.tenantName && (
-                    <div className="mt-4 rounded-md bg-muted/50 p-3">
-                      <p className="text-sm font-semibold text-foreground">{unit.tenantName}</p>
-                      {unit.tenantPhone && <p className="text-xs text-muted-foreground">{unit.tenantPhone}</p>}
+                    <div className="mt-4 rounded-md bg-muted/50 p-3 space-y-2">
+                      <div>
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                          {language === 'ar' ? 'اسم المستأجر' : 'Tenant Name'}
+                        </p>
+                        <p className="text-sm font-semibold text-foreground mt-1">
+                          <TenantName name={unit.tenantName} language={language} />
+                        </p>
+                      </div>
+                      {unit.tenantPhone && (
+                        <div>
+                          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                            {language === 'ar' ? 'رقم التلفون' : 'Tenant Phone'}
+                          </p>
+                          <p className={`text-sm text-foreground mt-1 ${language === 'ar' ? 'text-right' : 'text-left'}`} dir="ltr">
+                            {unit.tenantPhone}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -347,9 +410,15 @@ export default function UnitsClient({ initialUnits, properties }: { initialUnits
                       <p className="text-2xl font-bold text-primary">{unit._count.maintenanceRequests}</p>
                       <p className="text-xs text-muted-foreground">{t('maintenance.title')}</p>
                     </div>
-                    <Button variant="outline" size="sm" className="gap-2" onClick={() => handleShowQR(unit)}>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="gap-2"
+                      onClick={() => handleShowQR(unit)}
+                      title={t('units.maintenanceQRDesc')}
+                    >
                       <QrCode className="h-4 w-4" />
-                      QR Code
+                      <span className="hidden sm:inline">{t('units.maintenanceQR')}</span>
                     </Button>
                   </div>
 
@@ -383,7 +452,11 @@ export default function UnitsClient({ initialUnits, properties }: { initialUnits
                     value={formData.unitNumber}
                     onChange={(e) => setFormData({ ...formData, unitNumber: e.target.value })}
                     required
+                    placeholder="مثال: 101"
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    💡 الترجمة الإنجليزية ستُنشأ تلقائياً
+                  </p>
                 </div>
                 <div>
                   <label className="text-sm font-medium">{t('units.property')}</label>
@@ -446,23 +519,38 @@ export default function UnitsClient({ initialUnits, properties }: { initialUnits
 
       {showQRDialog && selectedUnit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <Card className="w-full max-w-md">
+          <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto">
             <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold">QR Code - {selectedUnit.unitNumber}</h3>
+              <div className="flex items-center justify-between mb-4 border-b pb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-foreground">
+                    {t('units.maintenanceQR')}
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {t('units.maintenanceQRDesc')}
+                  </p>
+                </div>
                 <Button variant="ghost" size="sm" onClick={() => setShowQRDialog(false)}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>
               <div className="flex flex-col items-center space-y-4">
-                <img src={qrDataUrl} alt="QR Code" className="w-64 h-64 border rounded-lg" />
-                <p className="text-sm text-center text-muted-foreground">
-                  {t('units.scanQR')}
-                </p>
+                <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-lg shadow-inner">
+                  <img src={qrDataUrl} alt="Maintenance QR Code" className="w-64 h-64 border rounded-lg" />
+                </div>
+                <div className="text-center">
+                  <p className="font-bold text-lg">{selectedUnit.property.name}</p>
+                  <p className="text-primary font-semibold">{language === 'ar' ? 'وحدة' : 'Unit'} {selectedUnit.unitNumber}</p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    {t('units.scanQR')}
+                  </p>
+                </div>
                 
-                <div className="w-full rounded-lg bg-muted/50 p-3">
-                  <p className="text-xs font-medium mb-1">{t('units.directLink')}</p>
-                  <code className="text-xs break-all block">
+                <div className="w-full rounded-lg bg-blue-50 border border-blue-200 p-3">
+                  <p className="text-xs font-semibold text-blue-900 mb-1">
+                    {language === 'ar' ? '🔗 رابط نموذج البلاغ:' : '🔗 Maintenance Request Form:'}
+                  </p>
+                  <code className="text-xs break-all block text-blue-800 bg-white px-2 py-1 rounded">
                     {buildAppUrl(`/request?unitId=${selectedUnit.id}`)}
                   </code>
                 </div>
@@ -543,7 +631,7 @@ export default function UnitsClient({ initialUnits, properties }: { initialUnits
                 </Button>
               </div>
               <p className="text-sm text-muted-foreground mb-4">
-                {t('units.deleteUnitConfirm')} <strong>{deletingUnit.unitNumber}</strong>?
+                {t('units.deleteUnitConfirm')} <strong><UnitNumber unit={deletingUnit} language={language} /></strong>?
               </p>
               {deletingUnit._count.maintenanceRequests > 0 && (
                 <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3 mb-4">

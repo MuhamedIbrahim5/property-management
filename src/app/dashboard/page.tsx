@@ -8,8 +8,6 @@ import { Badge } from '@/components/ui/badge'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { useTranslation } from '@/hooks/useTranslation'
 
-export const dynamic = 'force-dynamic'
-
 type DashboardStats = {
   properties: number
   units: number

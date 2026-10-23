@@ -8,133 +8,128 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  phone     String?
-  password  String
-  role      String   @default("viewer") // admin, manager, technician, receptionist, viewer
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  lastLogin DateTime?
-
-  // Password Reset Fields
-  resetToken        String?   @unique
-  resetTokenExpiry  DateTime?
-  resetTokenUsed    Boolean   @default(false)
-
-  assignedRequests MaintenanceRequest[] @relation("AssignedTo")
+  id               String               @id @default(cuid())
+  name             String
+  email            String               @unique
+  phone            String?
+  password         String
+  role             String               @default("viewer")
+  isActive         Boolean              @default(true)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  lastLogin        DateTime?
+  resetToken       String?              @unique
+  resetTokenExpiry DateTime?
+  resetTokenUsed   Boolean              @default(false)
   activities       ActivityHistory[]
+  fieldVisits      FieldVisit[]
+  assignedRequests MaintenanceRequest[] @relation("AssignedTo")
 }
 
 model Property {
-  id               String   @id @default(cuid())
-  name             String
-  neighborhood     String
-  address          String?
-  type             String   @default("residential") // residential, commercial, mixed
-  status           String   @default("active") // active, inactive
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  units              Unit[]
+  id                  String               @id @default(cuid())
+  name                String
+  neighborhood        String
+  address             String?
+  type                String               @default("residential")
+  status              String               @default("active")
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  longitude           Float?
+  latitude            Float?
+  nameEn              String?
+  neighborhoodEn      String?
+  qrToken             String?              @unique
   maintenanceRequests MaintenanceRequest[]
+  units               Unit[]
 }
 
 model Unit {
-  id           String   @id @default(cuid())
-  propertyId   String
-  unitNumber   String
-  type         String   @default("residential") // residential, services, office
-  status       String   @default("vacant") // occupied, vacant, maintenance
-  tenantName   String?
-  tenantPhone  String?
-  tenantEmail  String?
-  qrCode       String?  @unique
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  property            Property             @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  id                  String               @id @default(cuid())
+  propertyId          String
+  unitNumber          String
+  type                String               @default("residential")
+  status              String               @default("vacant")
+  tenantName          String?
+  tenantPhone         String?
+  tenantEmail         String?
+  qrCode              String?              @unique
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  unitNumberEn        String?
   maintenanceRequests MaintenanceRequest[]
+  property            Property             @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   @@index([propertyId])
 }
 
 model MaintenanceType {
-  id        String   @id @default(cuid())
-  name      String
-  color     String   @default("#3E7859")
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
+  id                  String               @id @default(cuid())
+  name                String
+  color               String               @default("#3E7859")
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  autoUrgent          Boolean              @default(false)
   maintenanceRequests MaintenanceRequest[]
 }
 
 model MaintenanceStatus {
-  id          String   @id @default(cuid())
-  name        String
-  color       String   @default("#2C5D7A")
-  icon        String?
-  order       Int      @default(0)
-  isActive    Boolean  @default(true)
-  isDefault   Boolean  @default(false)
-  isCompleted Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
+  id                  String               @id @default(cuid())
+  name                String
+  color               String               @default("#2C5D7A")
+  icon                String?
+  order               Int                  @default(0)
+  isActive            Boolean              @default(true)
+  isDefault           Boolean              @default(false)
+  isCompleted         Boolean              @default(false)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
   maintenanceRequests MaintenanceRequest[]
 }
 
 model MaintenanceRequest {
-  id               String   @id @default(cuid())
-  requestNumber    String   @unique
-  trackingCode     String   @unique
-  propertyId       String
-  unitId           String
-  issueDescription String
-  typeId           String
-  statusId         String
-  priority         String   @default("normal") // urgent, normal, low
-  assigneeId       String?
-  
-  // Documentation only (not accounting)
-  purchases      String?
-  paymentMethod  String?
-  cost           Float?
-  
-  // Public request fields
-  requesterName  String
-  requesterPhone String
-  isPublicRequest Boolean @default(false)
-  requestedDate  DateTime? // Requested appointment date
-  requestedTime  String?   // Requested appointment time (HH:MM format)
-  
-  rating         Int?
-  notes          String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  startedAt      DateTime?
-  completedAt    DateTime?
-  
-  // Technician completion fields - SECURITY ENHANCED
-  completionToken String?   @unique // Hashed completion token (SHA-256)
-  completionTokenPlain String? // AES-encrypted plain token for QR code generation
-  completionTokenCreatedAt DateTime? // Token creation date for expiry check
-  completionTokenUsed Boolean @default(false) // One-time use flag
-  technicianName   String?
-  technicianPhone  String?
-  completionImage  String?
-  completedBy      String?
-
-  property    Property          @relation(fields: [propertyId], references: [id])
-  unit        Unit              @relation(fields: [unitId], references: [id])
-  type        MaintenanceType   @relation(fields: [typeId], references: [id])
-  status      MaintenanceStatus @relation(fields: [statusId], references: [id])
-  assignee    User?             @relation("AssignedTo", fields: [assigneeId], references: [id])
-  attachments Attachment[]
-  activities  ActivityHistory[]
+  id                       String            @id @default(cuid())
+  requestNumber            String            @unique
+  trackingCode             String            @unique
+  propertyId               String
+  unitId                   String
+  issueDescription         String
+  typeId                   String
+  statusId                 String
+  priority                 String            @default("normal")
+  assigneeId               String?
+  purchases                String?
+  paymentMethod            String?
+  cost                     Float?
+  requesterName            String
+  requesterPhone           String
+  isPublicRequest          Boolean           @default(false)
+  rating                   Int?
+  notes                    String?
+  createdAt                DateTime          @default(now())
+  updatedAt                DateTime          @updatedAt
+  startedAt                DateTime?
+  completedAt              DateTime?
+  completedBy              String?
+  completionImage          String?
+  technicianName           String?
+  technicianPhone          String?
+  completionToken          String?           @unique
+  completionTokenCreatedAt DateTime?
+  completionTokenUsed      Boolean           @default(false)
+  requestedDate            DateTime?
+  requestedTime            String?
+  completionTokenPlain     String?
+  isDelayed                Boolean           @default(false)
+  activities               ActivityHistory[]
+  attachments              Attachment[]
+  fieldVisits              FieldVisit[]
+  assignee                 User?             @relation("AssignedTo", fields: [assigneeId], references: [id])
+  property                 Property          @relation(fields: [propertyId], references: [id])
+  status                   MaintenanceStatus @relation(fields: [statusId], references: [id])
+  type                     MaintenanceType   @relation(fields: [typeId], references: [id])
+  unit                     Unit              @relation(fields: [unitId], references: [id])
 
   @@index([propertyId])
   @@index([unitId])
@@ -142,35 +137,54 @@ model MaintenanceRequest {
   @@index([statusId])
   @@index([assigneeId])
   @@index([trackingCode])
+  @@index([isDelayed])
 }
 
 model Attachment {
-  id        String   @id @default(cuid())
-  requestId String
-  fileName  String
-  filePath  String
-  fileType  String
-  fileSize  Int
+  id         String             @id @default(cuid())
+  requestId  String
+  fileName   String
+  filePath   String
+  fileType   String
+  fileSize   Int
   uploadedBy String?
-  createdAt DateTime @default(now())
-
-  request MaintenanceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  createdAt  DateTime           @default(now())
+  category   String?            @default("general")
+  request    MaintenanceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
   @@index([requestId])
 }
 
 model ActivityHistory {
-  id        String   @id @default(cuid())
+  id        String             @id @default(cuid())
   requestId String
   userId    String
   action    String
   oldValue  String?
   newValue  String?
   notes     String?
-  createdAt DateTime @default(now())
+  createdAt DateTime           @default(now())
+  request   MaintenanceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  user      User               @relation(fields: [userId], references: [id])
 
-  request MaintenanceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  user    User               @relation(fields: [userId], references: [id])
+  @@index([requestId])
+  @@index([userId])
+}
+
+model FieldVisit {
+  id             String             @id @default(cuid())
+  requestId      String
+  userId         String
+  visitDate      DateTime           @default(now())
+  latitude       Float?
+  longitude      Float?
+  accuracy       Float?
+  locationError  String?
+  distanceMeters Float?
+  notes          String?
+  createdAt      DateTime           @default(now())
+  request        MaintenanceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  user           User               @relation(fields: [userId], references: [id])
 
   @@index([requestId])
   @@index([userId])

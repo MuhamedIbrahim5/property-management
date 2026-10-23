@@ -75,31 +75,22 @@ export default function LoginPage() {
               <Building2 className="h-10 w-10 text-amber-400" strokeWidth={1.5} />
             </div>
             
-            <h1 className="text-xl font-bold text-white mb-1">
-              {language === 'ar' ? t('auth.companyName') : t('auth.companyNameEn')}
+            <h1 className="text-xl font-bold text-white mb-3">
+              {language === 'ar' ? 'شركة المساعدية النموذجية للعقارات' : 'AL-MUSAADIYA MODEL REAL ESTATE CO.'}
             </h1>
-            <p className="text-sm text-slate-300 mb-4">
-              {language === 'ar' ? t('auth.companyNameEn') : t('auth.companyName')}
-            </p>
             
             <div className="mx-auto h-px w-16 bg-amber-400/50 mb-4"></div>
             
-            <p className="text-sm font-medium text-slate-200">
-              {language === 'ar' ? t('auth.propertyManagementSystem') : t('auth.propertyManagementSystemEn')}
-            </p>
-            <p className="text-xs text-slate-400 mt-1">
-              {language === 'ar' ? t('auth.propertyManagementSystemEn') : t('auth.propertyManagementSystem')}
+            <p className="text-base font-medium text-slate-100">
+              {language === 'ar' ? 'نظام إدارة الأملاك والصيانة' : 'Property Management System'}
             </p>
           </div>
 
           <CardContent className="px-8 py-8">
             <div className="mb-6 text-center">
               <h2 className="text-lg font-bold text-slate-800">
-                {language === 'ar' ? t('auth.adminLogin') : t('auth.adminLoginEn')}
+                {t('auth.login')}
               </h2>
-              <p className="text-xs text-slate-500 mt-1">
-                {language === 'ar' ? t('auth.adminLoginEn') : t('auth.adminLogin')}
-              </p>
             </div>
 
             {/* Login Form */}
@@ -114,7 +105,7 @@ export default function LoginPage() {
               {/* Email Field */}
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-700">
-                  {language === 'ar' ? t('auth.email') : 'Email address'}
+                  {t('auth.email')}
                 </label>
                 <div className="relative">
                   <div className={`pointer-events-none absolute inset-y-0 flex items-center ${isRTL ? 'right-3' : 'left-3'}`}>
@@ -134,7 +125,7 @@ export default function LoginPage() {
               {/* Password Field */}
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-700">
-                  {language === 'ar' ? t('auth.password') : 'Password'}
+                  {t('auth.password')}
                 </label>
                 <div className="relative">
                   <div className={`pointer-events-none absolute inset-y-0 flex items-center ${isRTL ? 'right-3' : 'left-3'}`}>
@@ -172,17 +163,8 @@ export default function LoginPage() {
                 className="h-12 w-full gap-2 text-base font-semibold shadow-md hover:shadow-lg" 
                 disabled={loading}
               >
-                {language === 'ar' ? (
-                  <>
-                    <LogIn className="h-5 w-5" />
-                    {loading ? t('auth.loggingIn') : t('auth.signIn')}
-                  </>
-                ) : (
-                  <>
-                    {loading ? t('auth.loggingIn') : t('auth.signInEn')}
-                    <LogIn className="h-5 w-5" />
-                  </>
-                )}
+                <LogIn className="h-5 w-5" />
+                {loading ? t('auth.loggingIn') : t('auth.login')}
               </Button>
             </form>
           </CardContent>

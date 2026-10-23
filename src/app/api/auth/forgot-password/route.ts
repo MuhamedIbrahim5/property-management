@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Generate reset link with plain token (not hashed)
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000'
     const resetLink = `${appUrl}/reset-password/${resetToken}`
 
     // Send email

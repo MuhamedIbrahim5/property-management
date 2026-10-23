@@ -1,28 +1,62 @@
 'use client'
 
-import { useState } from 'react'
-import { Building2, MapPin, Plus, X, Trash2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Building2, MapPin, Plus, X, Trash2, QrCode } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { useTranslation } from '@/hooks/useTranslation'
+import { useLanguage } from '@/contexts/LanguageContext'
+import { getLocalizedPropertyNameWithId, getLocalizedNeighborhoodWithId } from '@/lib/data-translation'
+import PropertyQRModal from '@/components/PropertyQRModal'
 
 type Property = {
   id: string
   name: string
+  nameEn?: string | null
   neighborhood: string
+  neighborhoodEn?: string | null
   status: string
   type: string
   units: any[]
   _count: { maintenanceRequests: number }
 }
 
+// Helper component to display translated property name
+function PropertyName({ property, language }: { property: Property; language: 'ar' | 'en' }) {
+  const [displayName, setDisplayName] = useState(property.name)
+  
+  useEffect(() => {
+    getLocalizedPropertyNameWithId(property.id, property.name, property.nameEn, language)
+      .then(setDisplayName)
+      .catch(() => setDisplayName(property.name))
+  }, [property, language])
+  
+  return <>{displayName}</>
+}
+
+// Helper component to display translated neighborhood
+function NeighborhoodName({ property, language }: { property: Property; language: 'ar' | 'en' }) {
+  const [displayName, setDisplayName] = useState(property.neighborhood)
+  
+  useEffect(() => {
+    getLocalizedNeighborhoodWithId(property.id, property.neighborhood, property.neighborhoodEn, language)
+      .then(setDisplayName)
+      .catch(() => setDisplayName(property.neighborhood))
+  }, [property, language])
+  
+  return <>{displayName}</>
+}
+
 export default function PropertiesClient({ initialProperties }: { initialProperties: Property[] }) {
   const { t } = useTranslation()
+  const { language } = useLanguage()
   const [properties, setProperties] = useState<Property[]>(initialProperties)
   const [showDialog, setShowDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showQRModal, setShowQRModal] = useState(false)
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null)
   const [deletingProperty, setDeletingProperty] = useState<Property | null>(null)
   const [editingProperty, setEditingProperty] = useState<Property | null>(null)
   const [formData, setFormData] = useState({
@@ -144,11 +178,11 @@ export default function PropertiesClient({ initialProperties }: { initialPropert
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <h3 className="text-lg font-bold text-foreground">
-                        {property.name}
+                        <PropertyName property={property} language={language} />
                       </h3>
                       <div className="mt-2 flex items-center gap-1 text-sm text-muted-foreground">
                         <MapPin className="h-4 w-4" />
-                        <span>{property.neighborhood}</span>
+                        <span><NeighborhoodName property={property} language={language} /></span>
                       </div>
                     </div>
                     <Badge
@@ -181,13 +215,31 @@ export default function PropertiesClient({ initialProperties }: { initialPropert
                     </div>
                   </div>
 
-                  <div className="mt-4 flex gap-2">
-                    <Button variant="outline" size="sm" className="flex-1" onClick={() => handleEdit(property)}>
-                      {t('common.edit')}
+                  <div className="mt-4 flex flex-col gap-2">
+                    {/* Field Visit QR Button - Full Width with Text */}
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="w-full gap-2 text-primary border-primary hover:bg-primary hover:text-white transition-colors"
+                      onClick={() => {
+                        setSelectedProperty(property)
+                        setShowQRModal(true)
+                      }}
+                      title={t('properties.fieldVisitQRDesc')}
+                    >
+                      <QrCode className="h-4 w-4" />
+                      <span className="font-medium">{t('properties.fieldVisitQR')}</span>
                     </Button>
-                    <Button variant="destructive" size="sm" className="flex-1" onClick={() => handleDelete(property)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    
+                    {/* Action Buttons Row */}
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" className="flex-1" onClick={() => handleEdit(property)}>
+                        {t('common.edit')}
+                      </Button>
+                      <Button variant="destructive" size="sm" onClick={() => handleDelete(property)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -215,7 +267,11 @@ export default function PropertiesClient({ initialProperties }: { initialPropert
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     required
+                    placeholder="مثال: عمارة النخيل"
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    💡 الترجمة الإنجليزية ستُنشأ تلقائياً
+                  </p>
                 </div>
                 <div>
                   <label className="text-sm font-medium">{t('properties.neighborhood')}</label>
@@ -223,6 +279,7 @@ export default function PropertiesClient({ initialProperties }: { initialPropert
                     value={formData.neighborhood}
                     onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
                     required
+                    placeholder="مثال: الملقا"
                   />
                 </div>
                 <div>
@@ -273,7 +330,7 @@ export default function PropertiesClient({ initialProperties }: { initialPropert
                 </Button>
               </div>
               <p className="text-sm text-muted-foreground mb-4">
-                {t('properties.deleteConfirm')} <strong>{deletingProperty.name}</strong>?
+                {t('properties.deleteConfirm')} <strong><PropertyName property={deletingProperty} language={language} /></strong>?
               </p>
               {(deletingProperty.units.length > 0 || deletingProperty._count.maintenanceRequests > 0) && (
                 <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3 mb-4">
@@ -294,6 +351,18 @@ export default function PropertiesClient({ initialProperties }: { initialPropert
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* QR Code Modal */}
+      {showQRModal && selectedProperty && (
+        <PropertyQRModal
+          propertyId={selectedProperty.id}
+          propertyName={selectedProperty.name}
+          onClose={() => {
+            setShowQRModal(false)
+            setSelectedProperty(null)
+          }}
+        />
       )}
     </>
   )

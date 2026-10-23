@@ -24,16 +24,61 @@ export async function PUT(
       completedBy 
     } = body
 
-    // Validate: If status is being set to "completed", technician name is required
+    // Validate: If status is being set to "completed", enforce strict validation
     if (statusId) {
       const newStatus = await prisma.maintenanceStatus.findUnique({
         where: { id: statusId }
       })
       
       if (newStatus?.isCompleted) {
+        // Strict validation for completion
         if (!technicianName || technicianName.trim() === '') {
           return NextResponse.json(
-            { error: 'Technician name is required when marking request as completed' },
+            { error: 'اسم الفني مطلوب لإتمام البلاغ' },
+            { status: 400 }
+          )
+        }
+        
+        // Check for required attachments (before and after images)
+        const attachments = await prisma.attachment.findMany({
+          where: { requestId: params.id },
+          select: { category: true }
+        })
+        
+        const beforeImages = attachments.filter(a => a.category === 'before')
+        const afterImages = attachments.filter(a => a.category === 'after')
+        
+        if (beforeImages.length === 0) {
+          return NextResponse.json(
+            { error: 'يجب رفع صور قبل الإصلاح لإتمام البلاغ' },
+            { status: 400 }
+          )
+        }
+        
+        if (afterImages.length === 0) {
+          return NextResponse.json(
+            { error: 'يجب رفع صور بعد الإصلاح لإتمام البلاغ' },
+            { status: 400 }
+          )
+        }
+        
+        // Check for field visits with notes
+        const fieldVisits = await prisma.fieldVisit.findMany({
+          where: { requestId: params.id },
+          select: { notes: true }
+        })
+        
+        if (fieldVisits.length === 0) {
+          return NextResponse.json(
+            { error: 'يجب تسجيل زيارة ميدانية واحدة على الأقل لإتمام البلاغ' },
+            { status: 400 }
+          )
+        }
+        
+        const visitsWithNotes = fieldVisits.filter(v => v.notes && v.notes.trim() !== '')
+        if (visitsWithNotes.length === 0) {
+          return NextResponse.json(
+            { error: 'يجب كتابة ملاحظات العمل في الزيارة الميدانية لإتمام البلاغ' },
             { status: 400 }
           )
         }

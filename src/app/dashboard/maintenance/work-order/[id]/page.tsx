@@ -5,6 +5,9 @@ import { redirect, notFound } from 'next/navigation'
 import { decryptToken } from '@/lib/auth-helpers'
 import WorkOrderClient from './WorkOrderClient'
 
+// Force dynamic rendering - this page requires database access at request time
+export const dynamic = 'force-dynamic'
+
 export default async function WorkOrderPage({ params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
 

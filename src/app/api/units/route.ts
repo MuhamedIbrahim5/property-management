@@ -43,16 +43,27 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json()
-    const { propertyId, unitNumber, type, status, tenantName, tenantPhone } = body
+    const { propertyId, unitNumber, unitNumberEn, type, status, tenantName, tenantPhone } = body
+
+    // SECURITY: Sanitize tenant name - remove HTML/XML tags
+    const sanitizedTenantName = tenantName 
+      ? tenantName.replace(/<[^>]*>/g, '').trim() 
+      : null
+
+    // SECURITY: Sanitize tenant phone - remove non-numeric characters except + and spaces
+    const sanitizedTenantPhone = tenantPhone
+      ? tenantPhone.replace(/[^0-9+\s-]/g, '').trim()
+      : null
 
     const unit = await prisma.unit.create({
       data: {
         propertyId,
         unitNumber,
+        unitNumberEn: unitNumberEn || null,
         type: type || 'residential',
         status: status || 'vacant',
-        tenantName,
-        tenantPhone,
+        tenantName: sanitizedTenantName,
+        tenantPhone: sanitizedTenantPhone,
       },
     })
 

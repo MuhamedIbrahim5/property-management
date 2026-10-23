@@ -7,10 +7,18 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "tsx src/lib/__tests__/run-security-tests.ts",
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
-    "db:seed": "node create-admin.js"
+    "db:seed": "node create-admin.js",
+    "dev:migrate": "dotenv -e .env.development -- prisma migrate dev",
+    "dev:reset": "dotenv -e .env.development -- prisma migrate reset",
+    "dev:studio": "dotenv -e .env.development -- prisma studio",
+    "dev:status": "dotenv -e .env.development -- prisma migrate status",
+    "dev:seed": "dotenv -e .env.development -- node create-admin.js",
+    "prod:migrate": "prisma migrate deploy",
+    "prod:status": "prisma migrate status"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
@@ -42,6 +50,7 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "autoprefixer": "^10.6.1",
+    "dotenv-cli": "^8.0.0",
     "eslint": "^8",
     "eslint-config-next": "14.2.18",
     "postcss": "^8",

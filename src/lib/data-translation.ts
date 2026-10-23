@@ -1,9 +1,33 @@
 /**
  * Translate database values to user's language
- * This doesn't modify the database, only translates known values for display
+ * Uses automatic translation for dynamic content when English translation is missing
  */
 
 import { Language } from './translations'
+import { translateToEnglish, isArabicText } from './translation-service'
+
+/**
+ * Save translation to database in the background
+ * This is a fire-and-forget operation - errors are silently ignored
+ */
+async function saveTranslationToDatabase(
+  type: 'property' | 'unit',
+  id: string,
+  translations: Record<string, string>
+): Promise<void> {
+  try {
+    // Fire and forget - don't wait for response
+    fetch('/api/translations/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, id, translations }),
+    }).catch(() => {
+      // Silently ignore errors - translation saving is optional
+    })
+  } catch {
+    // Silently ignore - translation saving is optional
+  }
+}
 
 // Status translations - matching actual database values
 const statusTranslations: Record<string, { ar: string; en: string }> = {
@@ -91,27 +115,290 @@ export function translateMaintenanceType(typeName: string, language: Language): 
 }
 
 /**
- * Check if text is Arabic
+ * Get localized property name with automatic translation
+ * If nameEn exists, use it. Otherwise, translate Arabic text automatically when language is English.
+ * Saves translation to database for future use.
  */
-export function isArabicText(text: string): boolean {
-  const arabicPattern = /[\u0600-\u06FF]/
-  return arabicPattern.test(text)
-}
-
-/**
- * Translate property/unit names if they match known patterns
- * Does NOT translate user-provided custom names
- */
-export function translatePropertyName(name: string, language: Language): string {
-  // Don't translate - these are custom names from users
+export async function getLocalizedPropertyNameWithId(
+  id: string,
+  name: string,
+  nameEn: string | null | undefined,
+  language: Language
+): Promise<string> {
+  // If Arabic or translation exists, use it
+  if (language === 'ar' || nameEn) {
+    return language === 'en' && nameEn ? nameEn : name
+  }
+  
+  // Language is English and no translation - auto-translate if Arabic
+  if (isArabicText(name)) {
+    const translated = await translateToEnglish(name)
+    
+    // Save to database in background (fire and forget)
+    if (translated !== name) {
+      saveTranslationToDatabase('property', id, { nameEn: translated })
+    }
+    
+    return translated
+  }
+  
   return name
 }
 
 /**
- * Translate unit number if it contains translatable parts
- * Example: "Unit 101" -> "وحدة 101" in Arabic
+ * Get localized neighborhood with automatic translation
+ * Saves translation to database for future use.
+ */
+export async function getLocalizedNeighborhoodWithId(
+  id: string,
+  neighborhood: string,
+  neighborhoodEn: string | null | undefined,
+  language: Language
+): Promise<string> {
+  if (language === 'ar' || neighborhoodEn) {
+    return language === 'en' && neighborhoodEn ? neighborhoodEn : neighborhood
+  }
+  
+  if (isArabicText(neighborhood)) {
+    const translated = await translateToEnglish(neighborhood)
+    
+    // Save to database in background
+    if (translated !== neighborhood) {
+      saveTranslationToDatabase('property', id, { neighborhoodEn: translated })
+    }
+    
+    return translated
+  }
+  
+  return neighborhood
+}
+
+/**
+ * Legacy functions without ID (no database saving)
+ * Used for backward compatibility
+ */
+export async function getLocalizedPropertyName(
+  name: string,
+  nameEn: string | null | undefined,
+  language: Language
+): Promise<string> {
+  if (language === 'ar' || nameEn) {
+    return language === 'en' && nameEn ? nameEn : name
+  }
+  
+  if (isArabicText(name)) {
+    return await translateToEnglish(name)
+  }
+  
+  return name
+}
+
+/**
+ * Get localized neighborhood with automatic translation
+ */
+export async function getLocalizedNeighborhood(
+  neighborhood: string,
+  neighborhoodEn: string | null | undefined,
+  language: Language
+): Promise<string> {
+  if (language === 'ar' || neighborhoodEn) {
+    return language === 'en' && neighborhoodEn ? neighborhoodEn : neighborhood
+  }
+  
+  if (isArabicText(neighborhood)) {
+    return await translateToEnglish(neighborhood)
+  }
+  
+  return neighborhood
+}
+
+/**
+ * Get localized unit number with automatic translation
+ * Saves translation to database for future use.
+ */
+export async function getLocalizedUnitNumberWithId(
+  id: string,
+  unitNumber: string,
+  unitNumberEn: string | null | undefined,
+  language: Language
+): Promise<string> {
+  if (language === 'ar' || unitNumberEn) {
+    return language === 'en' && unitNumberEn ? unitNumberEn : unitNumber
+  }
+  
+  if (isArabicText(unitNumber)) {
+    const translated = await translateToEnglish(unitNumber)
+    
+    // Save to database in background
+    if (translated !== unitNumber) {
+      saveTranslationToDatabase('unit', id, { unitNumberEn: translated })
+    }
+    
+    return translated
+  }
+  
+  return unitNumber
+}
+
+/**
+ * Get localized unit number with automatic translation
+ */
+export async function getLocalizedUnitNumber(
+  unitNumber: string,
+  unitNumberEn: string | null | undefined,
+  language: Language
+): Promise<string> {
+  if (language === 'ar' || unitNumberEn) {
+    return language === 'en' && unitNumberEn ? unitNumberEn : unitNumber
+  }
+  
+  if (isArabicText(unitNumber)) {
+    return await translateToEnglish(unitNumber)
+  }
+  
+  return unitNumber
+}
+
+/**
+ * Helper to get localized property data with automatic translation
+ * Returns an object with all localized property fields
+ */
+export async function getLocalizedProperty<T extends {
+  name: string
+  nameEn?: string | null
+  neighborhood: string
+  neighborhoodEn?: string | null
+}>(property: T, language: Language) {
+  const [displayName, displayNeighborhood] = await Promise.all([
+    getLocalizedPropertyName(property.name, property.nameEn, language),
+    getLocalizedNeighborhood(property.neighborhood, property.neighborhoodEn, language),
+  ])
+  
+  return {
+    ...property,
+    displayName,
+    displayNeighborhood,
+  }
+}
+
+/**
+ * Helper to get localized unit data with automatic translation
+ * Returns an object with all localized unit fields
+ */
+export async function getLocalizedUnit<T extends {
+  unitNumber: string
+  unitNumberEn?: string | null
+}>(unit: T, language: Language) {
+  const displayUnitNumber = await getLocalizedUnitNumber(unit.unitNumber, unit.unitNumberEn, language)
+  
+  return {
+    ...unit,
+    displayUnitNumber,
+  }
+}
+
+/**
+ * Translate maintenance request issue description
+ */
+export async function getLocalizedIssueDescription(
+  description: string,
+  language: Language
+): Promise<string> {
+  if (language === 'ar' || !description) {
+    return description
+  }
+  
+  if (isArabicText(description)) {
+    return await translateToEnglish(description)
+  }
+  
+  return description
+}
+
+/**
+ * Translate maintenance request notes
+ */
+export async function getLocalizedNotes(
+  notes: string | null | undefined,
+  language: Language
+): Promise<string> {
+  if (!notes || language === 'ar') {
+    return notes || ''
+  }
+  
+  if (isArabicText(notes)) {
+    return await translateToEnglish(notes)
+  }
+  
+  return notes
+}
+
+/**
+ * Translate requester name
+ */
+export async function getLocalizedRequesterName(
+  name: string,
+  language: Language
+): Promise<string> {
+  if (language === 'ar' || !name) {
+    return name
+  }
+  
+  // Only translate if it contains Arabic
+  if (isArabicText(name)) {
+    return await translateToEnglish(name)
+  }
+  
+  return name
+}
+
+/**
+ * Translate tenant name
+ */
+export async function getLocalizedTenantName(
+  name: string | null | undefined,
+  language: Language
+): Promise<string> {
+  if (!name || language === 'ar') {
+    return name || ''
+  }
+  
+  if (isArabicText(name)) {
+    return await translateToEnglish(name)
+  }
+  
+  return name
+}
+
+/**
+ * Translate any generic text field
+ * Useful for dynamic content that doesn't have a dedicated translation field
+ */
+export async function getLocalizedText(
+  text: string | null | undefined,
+  language: Language
+): Promise<string> {
+  if (!text || language === 'ar') {
+    return text || ''
+  }
+  
+  if (isArabicText(text)) {
+    return await translateToEnglish(text)
+  }
+  
+  return text
+}
+
+/**
+ * @deprecated Use getLocalizedPropertyName instead
+ */
+export function translatePropertyName(name: string, language: Language): string {
+  return name
+}
+
+/**
+ * @deprecated Use getLocalizedUnitNumber instead
  */
 export function translateUnitNumber(unitNumber: string, language: Language): string {
-  // Don't translate unit numbers - they are identifiers
   return unitNumber
 }
