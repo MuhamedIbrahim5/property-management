@@ -48,6 +48,7 @@ export const translations = {
       notes: 'ملاحظات',
       welcome: 'مرحباً',
       welcomeBack: 'مرحباً بعودتك',
+      retry: 'إعادة المحاولة',
     },
 
     // ========== Messages ==========
@@ -168,6 +169,7 @@ export const translations = {
       statistics: 'الإحصائيات',
       quickStats: 'إحصائيات سريعة',
       fromLastMonth: 'من الشهر السابق',
+      errorLoading: 'فشل تحميل البيانات',
     },
 
     // ========== Properties ==========
@@ -565,6 +567,7 @@ export const translations = {
       notes: 'Notes',
       welcome: 'Welcome',
       welcomeBack: 'Welcome back',
+      retry: 'Retry',
     },
 
     // ========== Messages ==========
@@ -685,6 +688,7 @@ export const translations = {
       statistics: 'Statistics',
       quickStats: 'Quick Stats',
       fromLastMonth: 'from last month',
+      errorLoading: 'Failed to load data',
     },
 
     // ========== Properties ==========
