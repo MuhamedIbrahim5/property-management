@@ -63,35 +63,50 @@ export async function GET() {
       }),
     ])
 
-    // Translate recent requests
+    // Translate recent requests with error handling
     const formattedRequests = await Promise.all(
       recentRequests.map(async (req) => {
-        const [propertyName, unitNumber, issueDescription] = await Promise.all([
-          getLocalizedPropertyNameWithId(
-            req.property.id,
-            req.property.name,
-            req.property.nameEn,
-            language
-          ),
-          req.unit 
-            ? getLocalizedUnitNumberWithId(
-                req.unit.id,
-                req.unit.unitNumber,
-                req.unit.unitNumberEn,
-                language
-              )
-            : Promise.resolve(language === 'ar' ? 'غير محدد' : 'Not specified'),
-          getLocalizedIssueDescription(req.issueDescription, language),
-        ])
+        try {
+          const [propertyName, unitNumber, issueDescription] = await Promise.all([
+            getLocalizedPropertyNameWithId(
+              req.property.id,
+              req.property.name,
+              req.property.nameEn,
+              language
+            ).catch(() => req.property.name), // Fallback to original on error
+            req.unit
+              ? getLocalizedUnitNumberWithId(
+                  req.unit.id,
+                  req.unit.unitNumber,
+                  req.unit.unitNumberEn,
+                  language
+                ).catch(() => req.unit!.unitNumber) // Fallback to original on error
+              : Promise.resolve(language === 'ar' ? 'غير محدد' : 'Not specified'),
+            getLocalizedIssueDescription(req.issueDescription, language)
+              .catch(() => req.issueDescription), // Fallback to original on error
+          ])
 
-        return {
-          id: req.requestNumber,
-          property: propertyName,
-          unit: unitNumber,
-          issue: issueDescription,
-          status: translateStatus(req.status.name, language),
-          statusColor: getStatusColor(req.status.name),
-          date: req.createdAt.toISOString().split('T')[0],
+          return {
+            id: req.requestNumber,
+            property: propertyName,
+            unit: unitNumber,
+            issue: issueDescription,
+            status: translateStatus(req.status.name, language),
+            statusColor: getStatusColor(req.status.name),
+            date: req.createdAt.toISOString().split('T')[0],
+          }
+        } catch (error) {
+          // Fallback: return request without translation if all fails
+          console.error('Error formatting request:', req.requestNumber, error)
+          return {
+            id: req.requestNumber,
+            property: req.property.name,
+            unit: req.unit ? req.unit.unitNumber : (language === 'ar' ? 'غير محدد' : 'Not specified'),
+            issue: req.issueDescription,
+            status: req.status.name,
+            statusColor: getStatusColor(req.status.name),
+            date: req.createdAt.toISOString().split('T')[0],
+          }
         }
       })
     )
