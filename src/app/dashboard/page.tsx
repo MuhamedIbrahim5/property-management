@@ -36,6 +36,10 @@ export default function DashboardPage() {
         if (response.ok) {
           const data = await response.json()
           setStats(data)
+        } else {
+          // If API fails, show error but stop loading
+          console.error('API returned error:', response.status)
+          setLoading(false)
         }
       } catch (error) {
         console.error('Error fetching dashboard stats:', error)
@@ -47,10 +51,26 @@ export default function DashboardPage() {
     fetchStats()
   }, [])
 
-  if (loading || !stats) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <LoadingSpinner size="lg" text={t('common.loading')} />
+      </div>
+    )
+  }
+
+  if (!stats) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <p className="text-muted-foreground">{t('dashboard.errorLoading')}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="mt-4 px-4 py-2 bg-primary text-white rounded-md"
+          >
+            {t('common.retry')}
+          </button>
+        </div>
       </div>
     )
   }
